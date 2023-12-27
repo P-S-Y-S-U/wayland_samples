@@ -56,3 +56,6 @@ build*
 
 # vs config
 .vscode
+
+# nano buffers
+*.swp
