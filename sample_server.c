@@ -3,26 +3,38 @@
 
 #include <wayland-server.h>
 
-struct state;
-struct output;
+struct Output;
+struct OutputState;
+struct Compositor;
 
-struct state
+struct OutputState
 {
-	int mX, mY;
-	int mResWidth, mResHeight;
+	int32_t mX, mY;
+	int32_t mPhyWidth, mPhyHeight;
+	int32_t mSubpixel;
+	const char* mpMake;
+	const char* mpModel;
+	int32_t mTransform;
 };
 
-struct output
+struct Output
 {
 	struct wl_resource* mpResource;
-	struct state*	mpState;
+	struct OutputState* mpState;
 };
+
+struct Compositor
+{
+	struct wl_resource* mpResource;
+};
+
+// Output Handle
 
 static void wl_output_handle_resource_destroy( struct wl_resource* pResource )
 {
 	printf("Cleaning up wl_output resource\n");
 
-	struct output* pClientOutput = wl_resource_get_user_data(pResource);
+	struct Output* pClientOutput = wl_resource_get_user_data(pResource);
 	// TODO cleanup resource
 }
 
@@ -44,8 +56,8 @@ static void wl_output_handle_bind(
 {
 	printf("Binding wl_output Version: %d id: %d\n", version, id);
 
-	struct state* pState = pData;
-	struct output* pClientOutput = calloc(1, sizeof(struct output));
+	struct OutputState* pState = pData;
+	struct Output* pClientOutput = calloc(1, sizeof(struct Output));
 
 	struct wl_resource* pResource = wl_resource_create(
 		pClient, &wl_output_interface,
@@ -60,12 +72,54 @@ static void wl_output_handle_bind(
 	pClientOutput->mpState = pState;
 
 	wl_output_send_geometry(
-		pResource, 0, 0, 1920, 1080,
-		WL_OUTPUT_SUBPIXEL_UNKNOWN,
-		"Foobar, Inc", "Foobar model",
-		WL_OUTPUT_TRANSFORM_NORMAL
+		pResource, pState->mX, pState->mY, pState->mPhyWidth, pState->mPhyHeight,
+		pState->mSubpixel,
+		pState->mpMake, pState->mpModel,
+		pState->mTransform
 	);
 }
+
+// Compositor Handle
+
+static void wl_compositor_handle_resource_destroy( struct wl_resource* pResource )
+{
+	printf("Cleaning up wl_compositor resource\n");
+
+	struct Compositor* pCompositor = wl_resource_get_user_data(pResource);
+	// TODO cleanup resource
+}
+
+static void wl_compositor_handle_create_surface(
+	struct wl_client* pClient, struct wl_resource* pResource, uint32_t id
+)
+{
+	printf("Compositor Create surface request from Client with id : %d\n", id);
+}
+
+
+static const struct wl_compositor_interface wl_compositor_impl = {
+	.create_surface = wl_compositor_handle_create_surface
+};
+
+static void wl_compositor_handle_bind(
+	struct wl_client* pClient, void* pData,
+	uint32_t version, uint32_t id
+)
+{
+	printf("Binding wl_compositor Version: %d id: %d\n", version, id);
+
+	struct Compositor* pCompositor = calloc(1, sizeof(struct Compositor));
+
+	struct wl_resource* pResource = wl_resource_create(
+		pClient, &wl_compositor_interface,
+		wl_compositor_interface.version, id
+	);
+	wl_resource_set_implementation( pResource, &wl_compositor_impl,
+		pCompositor, wl_compositor_handle_resource_destroy
+	);
+	pCompositor->mpResource = pResource;
+}
+
 
 int main( int argc, const char* argv[] )
 {
@@ -76,9 +130,12 @@ int main( int argc, const char* argv[] )
 		return 1;
 	}
 
-	struct state displayState = {
+	struct OutputState displayState = {
 		0, 0,
-		1920, 1080
+		1920, 1080,
+		WL_OUTPUT_SUBPIXEL_UNKNOWN,
+		"Foo Inc", "Foo Model",
+		WL_OUTPUT_TRANSFORM_NORMAL
 	};
 
 	printf("Creating Global wl_output Object\n");
@@ -86,6 +143,13 @@ int main( int argc, const char* argv[] )
 		pDisplay, &wl_output_interface,
 		wl_output_interface.version,
 		&displayState, wl_output_handle_bind
+	);
+
+	printf("Creating Global wl_compositor Object\n");
+	wl_global_create(
+		pDisplay, &wl_compositor_interface,
+		wl_compositor_interface.version,
+		NULL, wl_compositor_handle_bind
 	);
 
 	const char* pSocket = wl_display_add_socket_auto(pDisplay);
