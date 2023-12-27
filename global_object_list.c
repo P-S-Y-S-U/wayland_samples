@@ -6,7 +6,7 @@ static void registry_handle_global(
 	uint32_t name, const char* pInterface, uint32_t version
 )
 {
-	printf("interface: %s, version: %d, name: %d\n",
+	printf("Global Object Handle interface: %s, version: %d, name: %d\n",
 		pInterface, version, name );
 }
 
@@ -36,9 +36,16 @@ int main(int argc, const char* argv[])
 	{
 		printf("Failed to obtain display registry\n");
 	}
+
 	printf("Registry for globals has been retrieved\n");
 	wl_registry_add_listener(pRegistry, &registry_listener, NULL);
-	wl_display_roundtrip(pDisplay);
+
+	printf("Starting Client Event Loop\n");
+	while( wl_display_dispatch(pDisplay) != -1 )
+	{
+		wl_display_roundtrip(pDisplay);
+	}
+
 	wl_display_disconnect(pDisplay);
 	printf("Client Disconnected from the Display\n");
 	return 0;
