@@ -12,7 +12,6 @@ int main(int argc, const char* argv[] )
 
 	printf("Connection Established!\n");
 	wl_display_disconnect(pDisplay);
-//	wl_display_roundtrip(pDisplay);
 	printf("Display Disconnection done from client");
 	return 0;
 }
