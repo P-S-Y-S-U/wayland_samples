@@ -18,6 +18,7 @@ struct GlobalObjectState
 {
     struct wl_compositor* mpCompositor;
     struct wl_output*  mpOutput;
+	struct wl_shm* mpShm;
 };
 
 static const struct wl_registry_listener g_registryListener = {
@@ -47,6 +48,13 @@ static void registry_handle_global(
         pObjState->mpOutput = wl_registry_bind(
             pRegistry, name,
 			&wl_output_interface, version
+		);
+	}
+	else if( strcmp("wl_shm", pInterface) == 0 )
+	{
+		pObjState->mpShm = wl_registry_bind(
+			pRegistry, name,
+			&wl_shm_interface, version
 		);
 	}
 }

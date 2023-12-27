@@ -152,6 +152,14 @@ int main( int argc, const char* argv[] )
 		NULL, wl_compositor_handle_bind
 	);
 
+	if( wl_display_init_shm(pDisplay) == -1 )
+	{
+		printf("Failed to init wl_shm\n");
+	}
+
+	wl_display_add_shm_format( pDisplay, WL_SHM_FORMAT_ARGB8888 );
+	wl_display_add_shm_format( pDisplay, WL_SHM_FORMAT_XRGB8888 );
+
 	const char* pSocket = wl_display_add_socket_auto(pDisplay);
 	if(!pSocket)
 	{
