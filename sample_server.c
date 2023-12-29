@@ -3,6 +3,8 @@
 
 #include <wayland-server.h>
 
+#include "xdg-shell-server-protocol.h"
+
 struct Output;
 struct OutputState;
 struct Compositor;
@@ -24,6 +26,11 @@ struct Output
 };
 
 struct Compositor
+{
+	struct wl_resource* mpResource;
+};
+
+struct XdgWmBase
 {
 	struct wl_resource* mpResource;
 };
@@ -89,6 +96,7 @@ static void wl_compositor_handle_resource_destroy( struct wl_resource* pResource
 	// TODO cleanup resource
 }
 
+#if 1
 static void wl_compositor_handle_create_surface(
 	struct wl_client* pClient, struct wl_resource* pResource, uint32_t id
 )
@@ -100,6 +108,9 @@ static void wl_compositor_handle_create_surface(
 static const struct wl_compositor_interface wl_compositor_impl = {
 	.create_surface = wl_compositor_handle_create_surface
 };
+#else
+static const struct wl_compositor_interface wl_compositor_impl = {};
+#endif 
 
 static void wl_compositor_handle_bind(
 	struct wl_client* pClient, void* pData,
@@ -114,12 +125,70 @@ static void wl_compositor_handle_bind(
 		pClient, &wl_compositor_interface,
 		wl_compositor_interface.version, id
 	);
+#if 0
 	wl_resource_set_implementation( pResource, &wl_compositor_impl,
 		pCompositor, wl_compositor_handle_resource_destroy
 	);
+#elif 0
+	wl_resource_set_implementation( pResource, NULL,
+		pCompositor, wl_compositor_handle_resource_destroy
+	);
+#else
+#endif
 	pCompositor->mpResource = pResource;
 }
 
+// XdgWmBase Handle
+
+static void xdg_wm_base_handle_resource_destroy( struct wl_resource* pResource )
+{
+	printf("Cleaning up xdg_wm_base resource \n");
+	struct XdgWmBase* pXdgWmBase = wl_resource_get_user_data(pResource);
+	// TODO cleanup resource
+}
+
+static void xdg_wm_base_handle_get_xdg_surface(
+	struct wl_client* pClient, struct wl_resource* pResource,
+	uint32_t id, struct wl_resource* pSurface
+)
+{
+	printf("Creating xdg_surface with id : %d\n", id);
+}
+
+static void xdg_wm_base_handle_pong(
+	struct wl_client* pClient, struct wl_resource* pResource, uint32_t serial
+)
+{
+	printf("Received pong request from the client with serial : %d", serial);
+}
+
+static const struct xdg_wm_base_interface xdg_wm_base_impl = {
+	.get_xdg_surface = xdg_wm_base_handle_get_xdg_surface,
+	.pong = xdg_wm_base_handle_pong
+};
+
+static void xdg_wm_base_handle_bind(
+	struct wl_client* pClient, void* pData,
+	uint32_t version, uint32_t id
+)
+{
+	printf("Binding xdg_wm_base Version: %d id: %d\n", version, id);
+	struct XdgWmBase* pXdgWmBase = calloc(1, sizeof(struct XdgWmBase));
+
+	struct wl_resource* pResource = wl_resource_create(
+		pClient, &xdg_wm_base_interface,
+		xdg_wm_base_interface.version, id
+	);
+#if 0
+	wl_resource_set_implementation(
+		pResource, &xdg_wm_base_impl,
+		pXdgWmBase,
+		xdg_wm_base_handle_resource_destroy
+	);
+#else
+#endif
+	pXdgWmBase->mpResource = pResource;
+}
 
 int main( int argc, const char* argv[] )
 {
@@ -152,6 +221,7 @@ int main( int argc, const char* argv[] )
 		NULL, wl_compositor_handle_bind
 	);
 
+	printf("Instantiating Global wl_shm Object\n");
 	if( wl_display_init_shm(pDisplay) == -1 )
 	{
 		printf("Failed to init wl_shm\n");
@@ -159,6 +229,13 @@ int main( int argc, const char* argv[] )
 
 	wl_display_add_shm_format( pDisplay, WL_SHM_FORMAT_ARGB8888 );
 	wl_display_add_shm_format( pDisplay, WL_SHM_FORMAT_XRGB8888 );
+
+	printf("Creating Global xdg_wm_base Object\n");
+	wl_global_create(
+		pDisplay, &xdg_wm_base_interface,
+		xdg_wm_base_interface.version,
+		NULL, xdg_wm_base_handle_bind
+	);
 
 	const char* pSocket = wl_display_add_socket_auto(pDisplay);
 	if(!pSocket)
