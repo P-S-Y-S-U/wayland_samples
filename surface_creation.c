@@ -70,7 +70,7 @@ int main(int argc, const char* argv[])
 		pPool, offset,
     	width, height, stride, WL_SHM_FORMAT_XRGB8888
 	);
-	
+
 	uint32_t *pixels = (uint32_t *)&pool_data[offset];
 	memset(pixels, 0, width * height * 4);
 
@@ -85,7 +85,7 @@ int main(int argc, const char* argv[])
 		pPool, offset,
     	width, height, stride, WL_SHM_FORMAT_XRGB8888
 	);
-	
+
 	pixels = (uint32_t *)&pool_data[offset];
 	memset(pixels, 0, width * height * 4);
 
