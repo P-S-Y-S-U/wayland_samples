@@ -1,12 +1,19 @@
 
+#include "egl_common.h"
 #include "client_common.h"
 #include "xdg_client_common.h"
 #include "shm_helper.h"
 
+#include <GLES2/gl2.h>
+
 struct ClientObjState;
 
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
-static struct wl_buffer* draw_frame( struct ClientObjState* pClientObjState );
+#if 0 
+	static struct wl_buffer* draw_frame( struct ClientObjState* pClientObjState );
+#else
+	static void draw_frame();
+#endif
 
 struct ClientObjState
 {
@@ -14,6 +21,9 @@ struct ClientObjState
     struct wl_surface* mpWlSurface;
     struct xdg_surface* mpXdgSurface;
     struct xdg_toplevel* mpXdgTopLevel;
+	struct eglContext mpEglContext;
+
+	int8_t mbCloseApplication;
 };
 
 static const struct wl_buffer_listener wl_buffer_listener = {
@@ -25,6 +35,7 @@ static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer )
 	wl_buffer_destroy(pWlBuffer);
 }
 
+#if 0
 static struct wl_buffer* draw_frame( struct ClientObjState* pClientObjState )
 {
 	const int width = 640, height = 480;
@@ -76,17 +87,45 @@ static struct wl_buffer* draw_frame( struct ClientObjState* pClientObjState )
 	wl_buffer_add_listener(pWlBuffer, &wl_buffer_listener, NULL);
 	return pWlBuffer;
 }
-
+#else 
+	static void draw_frame()
+	{
+		glClearColor(0.6, 0.25, 0.0, 1.0);
+		glClear(GL_COLOR_BUFFER_BIT);
+	}
+#endif 
 static void xdg_surface_configure(
 	void* pData, struct xdg_surface* pXdgSurface, uint32_t serial
 )
 {
     struct ClientObjState* pClientObjState = pData;
 	xdg_surface_ack_configure(pXdgSurface, serial);
+}
 
-	struct wl_buffer* pBuffer = draw_frame(pClientObjState);
-	wl_surface_attach(pClientObjState->mpWlSurface, pBuffer, 0, 0);
-	wl_surface_commit(pClientObjState->mpWlSurface);
+static void xdg_toplevel_handle_configure(
+	void* pData,
+	struct xdg_toplevel* pXdgToplevel,
+	int32_t width, int32_t height,
+	struct wl_array* pStates
+)
+{
+	// no window geometry event, should ignore
+	if( width == 0 && height == 0 ) return;
+
+	struct ClientObjState* pClientObjState = pData;
+
+	// resize
+	wl_egl_window_resize( pClientObjState->mpEglContext.mNativeWindow, width, height, 0, 0 );
+	wl_surface_commit( pClientObjState->mpEglContext.mEglSurface );
+}
+
+static void xdg_toplevel_handle_close(
+    void* pData,
+    struct xdg_toplevel* pXdgTopLevel
+)
+{
+	struct ClientObjState* pClientObjState = pData;
+	pClientObjState->mbCloseApplication = 1;
 }
 
 int main( int argc, const char* argv[] )
@@ -133,14 +172,27 @@ int main( int argc, const char* argv[] )
     AssignXDGSurfaceListener( clientObjState.mpXdgSurface, &clientObjState );
 
     clientObjState.mpXdgTopLevel = xdg_surface_get_toplevel( clientObjState.mpXdgSurface );
+	AssignXDGToplevelListener(clientObjState.mpXdgTopLevel, &clientObjState);
     xdg_toplevel_set_title(clientObjState.mpXdgTopLevel, "Example EGL Client");
     wl_surface_commit(clientObjState.mpWlSurface);
     
-    while( wl_display_dispatch(pDisplay) != -1 )
-    {
+	CreateWindowWithEGLContext(
+		clientObjState.mpWlSurface, 
+		"EGL Client", 
+		800, 600,
+		&clientObjState.mpEglContext
+	);
 
+	clientObjState.mbCloseApplication = 0;
+
+    while( clientObjState.mbCloseApplication != 1 )
+    {
+		wl_display_dispatch_pending(clientObjState.mpEglContext.mNativeDisplay);
+		draw_frame();
+		SwapEGLBuffers( &clientObjState.mpEglContext );
     }
 
+	ShutdownEGLContext( &clientObjState.mpEglContext, clientObjState.mpXdgTopLevel, clientObjState.mpXdgSurface, clientObjState.mpWlSurface );
     wl_display_disconnect(pDisplay);
     printf("Client Disconnected from the Display\n");
 
