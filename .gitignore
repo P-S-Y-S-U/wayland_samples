@@ -55,7 +55,7 @@ dkms.conf
 build*
 
 # vs config
-.vscode
+#.vscode
 
 # nano buffers
 *.swp

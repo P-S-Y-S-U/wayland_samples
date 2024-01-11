@@ -1,0 +1,5 @@
+{
+    "files.associations": {
+        "xdg-shell-client-protocol.h": "c"
+    }
+}
