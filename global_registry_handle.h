@@ -2,6 +2,7 @@
 #define _GLOBAL_REGISTRY_HANDLE_H
 
 #include <stdio.h>
+#include <string.h>
 #include <wayland-client.h>
 
 #include "xdg-shell-client-protocol.h"
