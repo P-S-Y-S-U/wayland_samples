@@ -92,7 +92,7 @@ int main(int argc, char ** argv)
                 printf("Failed to Initialize EGL\n");
         }
 
-        result = eglBindAPI(EGL_OPENGL_API);
+        result = eglBindAPI(EGL_OPENGL_ES_API);
 
         if( result != EGL_TRUE )
         {

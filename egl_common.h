@@ -20,16 +20,16 @@ struct eglContext
     uint16_t mWindowWidth, mWindowHeight;
     EGLDisplay mEglDisplay;
     EGLContext mEglContext;
+    EGLConfig mEglConfig;
     EGLSurface mEglSurface;
 };
 
-void CreateNativeWindow(
-    struct eglContext* pEglContext,
-    struct wl_surface* pSurface,
-    const char* title, 
-    uint16_t width, uint16_t height 
+void InitEGLContext( struct eglContext* pEglContext );
+void CreateEGLSurface( 
+    struct wl_surface* pWlSurface, 
+    uint16_t windowWidth, uint16_t windowHeight,
+    struct eglContext* pEglContext 
 );
-EGLBoolean CreateEGLContext( struct eglContext* pEglContext );
 
 void ShutdownEGLContext( 
     struct eglContext* pEglContext, 
@@ -37,103 +37,98 @@ void ShutdownEGLContext(
     struct xdg_surface* pXdgSurface, 
     struct wl_surface* pWlSurface 
 );
-void CreateWindowWithEGLContext(
-    struct wl_surface* pSurface,
-    const char* title, 
-    uint16_t width, uint16_t height,
-    struct eglContext* pEglContext
-);
+
 void SwapEGLBuffers( struct eglContext* pEglContext );
 
-
-void CreateNativeWindow(
-    struct eglContext* pEglContext,
-    struct wl_surface* pSurface,
-    const char* title, 
-    uint16_t width, uint16_t height 
-)
-{
-    struct wl_egl_window* pEglWindow = wl_egl_window_create( pSurface, width, height );
-    
-    if(pEglWindow == EGL_NO_SURFACE)
-    {
-        printf("Failed to Create EGL Window\n");
-        exit(1);
-    }
-    printf("EGL Window Created\n");
-    pEglContext->mWindowWidth = width;
-    pEglContext->mWindowHeight = height;
-    pEglContext->mNativeWindow = pEglWindow;
-}
-
-EGLBoolean CreateEGLContext(
-    struct eglContext* pEglContext
-)
+void InitEGLContext( struct eglContext* pEglContext )
 {
     EGLDisplay eglDisplay = eglGetDisplay( pEglContext->mNativeDisplay );
-    if( eglDisplay == EGL_NO_DISPLAY )
-    {
-        printf("Failed to retrieve EGL Display\n");
-        return EGL_FALSE;
-    }
 
-    EGLint majorVersion, minorVersion;
-    if( !eglInitialize( eglDisplay, &majorVersion, &minorVersion ) )
+    EGLint result;
+
+    /* initialize the EGL display connection */
+    EGLint major;
+    EGLint minor;
+    result = eglInitialize(eglDisplay, &major, &minor);
+        
+    if( result != EGL_TRUE )
     {
         printf("Failed to Initialize EGL\n");
-        return EGL_FALSE;
     }
 
-    EGLint numOfConfigs;
-    if( (eglGetConfigs( eglDisplay, NULL, 0, &numOfConfigs) != EGL_TRUE) || (numOfConfigs == 0) )
+    result = eglBindAPI(EGL_OPENGL_ES_API);
+
+    if( result != EGL_TRUE )
     {
-        printf("Failed to Get Num of EGL Configs\n");
-        return EGL_FALSE;
+        printf("Failed to bind API\n");
     }
 
-    EGLint fboAtrributes[]  = {
+    EGLint const attribute_list[] = {
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+        EGL_RED_SIZE, 1,
+        EGL_GREEN_SIZE, 1,
+        EGL_BLUE_SIZE, 1,
+        EGL_ALPHA_SIZE, 1,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-        EGL_RED_SIZE, 8,
-        EGL_BLUE_SIZE, 8,
-        EGL_GREEN_SIZE, 8,
         EGL_NONE
     };
-    EGLConfig config;
 
-    if( ( eglChooseConfig( eglDisplay, fboAtrributes, &config, 1, &numOfConfigs ) != EGL_TRUE ) || (numOfConfigs != 1) )
+    EGLint num_config;
+    EGLConfig eglConfig;
+
+    /* get an appropriate EGL frame buffer configuration */
+    result = eglChooseConfig(eglDisplay, attribute_list, &eglConfig, 1, &num_config);
+        
+    if( result != EGL_TRUE )
     {
-        printf("No EGL config chosen\n");
-        return EGL_FALSE;
+        printf("Failed to Choose EGL config\n");
     }
 
-    EGLSurface eglSurface = eglCreateWindowSurface( eglDisplay, config, pEglContext->mNativeWindow, NULL );
-    if( eglSurface == EGL_NO_SURFACE )
-    {
-        printf("Failed to create EGL Surface\n");
-        return EGL_FALSE;
-    }
+    /* create an EGL rendering context */
+    EGLContext eglContext = eglCreateContext(eglDisplay, eglConfig, EGL_NO_CONTEXT, NULL);
 
-    EGLint contextAttribs[] = {
-        EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE, EGL_NONE
-    };
-    EGLContext eglContext = eglCreateContext( eglDisplay, config, EGL_NO_CONTEXT, contextAttribs );
-    if( eglContext == EGL_NO_CONTEXT )
+    if( eglContext == NULL )
     {
-        printf("Failed to create EGL context\n");
-        return EGL_FALSE;
-    }
-
-    if( !eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext) )
-    {
-        printf("Couldn't Make Current Context to the Window\n");
-        return EGL_FALSE;
+        printf("Failed to Create Context\n");
     }
 
     pEglContext->mEglDisplay = eglDisplay;
-    pEglContext->mEglSurface = eglSurface;
     pEglContext->mEglContext = eglContext;
-    return EGL_TRUE;
+    pEglContext->mEglConfig = eglConfig;
+}
+
+void CreateEGLSurface( 
+    struct wl_surface* pWlSurface, 
+    uint16_t windowWidth, uint16_t windowHeight,
+    struct eglContext* pEglContext 
+)
+{
+    EGLint result;
+
+    EGLNativeWindowType eglNativeWindow = wl_egl_window_create( pWlSurface, windowWidth, windowHeight );
+    EGLSurface eglSurface = eglCreateWindowSurface( 
+        pEglContext->mEglDisplay, 
+        pEglContext->mEglConfig, 
+        eglNativeWindow, 
+        NULL 
+    );
+
+    if( eglSurface == EGL_NO_SURFACE )
+    {
+        printf("Failed to Create EGL Surface\n");
+    }
+
+    pEglContext->mNativeWindow = eglNativeWindow;
+    pEglContext->mEglSurface = eglSurface;
+    pEglContext->mWindowWidth = windowWidth;
+    pEglContext->mWindowHeight = windowHeight;
+
+    result = eglMakeCurrent( pEglContext->mEglDisplay, eglSurface, eglSurface, pEglContext->mEglContext );
+
+    if( result != EGL_TRUE )
+    {
+        printf( "Failed to Make Current Context\n" );
+    }
 }
 
 void ShutdownEGLContext( 
@@ -149,20 +144,6 @@ void ShutdownEGLContext(
     xdg_surface_destroy( pXdgSurface );
     wl_surface_destroy( pWlSurface );
     eglDestroyContext( pEglContext->mEglDisplay, pEglContext->mEglContext );
-}
-
-void CreateWindowWithEGLContext(
-    struct wl_surface* pSurface,
-    const char* title, 
-    uint16_t width, uint16_t height,
-    struct eglContext* pEglContext
-)
-{
-    CreateNativeWindow( pEglContext, pSurface, title, width, height );
-    if( CreateEGLContext( pEglContext ) != EGL_TRUE )
-    {
-        printf("Failed to start a EGL context for the surface\n");
-    }
 }
 
 void SwapEGLBuffers( struct eglContext* pEglContext )
