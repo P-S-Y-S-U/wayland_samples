@@ -87,6 +87,37 @@
             ],
             "preLaunchTask": "wayland-client build",
             "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "wayland-egl-client debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/build/${fileBasenameNoExtension}",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [
+                {
+                    "name" : "WAYLAND_DEBUG",
+                    "value": "1"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "wayland-egl-client build",
+            "miDebuggerPath": "/usr/bin/gdb"
         }
     ],
     "version": "2.0.0"

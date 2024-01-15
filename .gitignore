@@ -57,7 +57,7 @@ build*
 # vs config
 #.vscode
 c_cpp_properties.json
-settings.json
+.vscode/settings.json
 
 # nano buffers
 *.swp
