@@ -16,7 +16,6 @@ void retrieve_session_global( struct wl_display* pDisplay, struct GlobalObjectSt
     wl_registry_add_listener(pRegistry, &g_registryListener, pGObjState);
 
     wl_display_dispatch(pDisplay);
-    wl_display_roundtrip(pDisplay);
 }
 
 #endif 

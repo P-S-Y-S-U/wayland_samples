@@ -120,8 +120,6 @@ void CreateEGLSurface(
 
     pEglContext->mNativeWindow = eglNativeWindow;
     pEglContext->mEglSurface = eglSurface;
-    pEglContext->mWindowWidth = windowWidth;
-    pEglContext->mWindowHeight = windowHeight;
 
     result = eglMakeCurrent( pEglContext->mEglDisplay, eglSurface, eglSurface, pEglContext->mEglContext );
 

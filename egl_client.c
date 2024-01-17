@@ -5,15 +5,19 @@
 #include "shm_helper.h"
 
 #include <GLES2/gl2.h>
+#include <stdlib.h>
+#include <time.h>
 
 struct ClientObjState;
 
+static uint32_t startTime = 0;
+
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
-#if 0 
-	static struct wl_buffer* draw_frame( struct ClientObjState* pClientObjState );
-#else
-	static void draw_frame();
-#endif
+
+static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallback, uint32_t time );
+static void recordGlCommands( uint32_t time );
+
+static void surface_configure_callback( void * pData, struct wl_callback* pCallback, uint32_t time );
 
 struct ClientObjState
 {
@@ -22,12 +26,22 @@ struct ClientObjState
     struct xdg_surface* mpXdgSurface;
     struct xdg_toplevel* mpXdgTopLevel;
 	struct eglContext mpEglContext;
+	struct wl_callback* mpFrameCallback;
 
 	int8_t mbCloseApplication;
+	int8_t mbSurfaceConfigured;
 };
 
 static const struct wl_buffer_listener wl_buffer_listener = {
 	.release = wl_buffer_release
+};
+
+static const struct wl_callback_listener frame_listener = {
+	updateFrame_callback
+};
+
+static const struct wl_callback_listener configure_listener = {
+	surface_configure_callback
 };
 
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer )
@@ -35,11 +49,57 @@ static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer )
 	wl_buffer_destroy(pWlBuffer);
 }
 
-
-static void draw_frame()
+static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallback, uint32_t time )
 {
-	glClearColor(0.6, 0.25, 0.0, 1.0);
+	struct ClientObjState* pClientObjState = pData;
+
+	if( pFrameCallback != pClientObjState->mpFrameCallback )
+	{
+		printf("Frame Callback Not Synced\n");
+		return;
+	}
+	pClientObjState->mpFrameCallback = NULL;
+
+	if( pFrameCallback )
+		wl_callback_destroy(pFrameCallback);
+
+	if( !pClientObjState->mbSurfaceConfigured )
+		return;
+
+	recordGlCommands( time );
+
+	pClientObjState->mpFrameCallback = wl_surface_frame( pClientObjState->mpWlSurface );
+	wl_callback_add_listener( pClientObjState->mpFrameCallback, &frame_listener, pClientObjState );
+
+	SwapEGLBuffers( &pClientObjState->mpEglContext );
+}
+
+static void recordGlCommands( uint32_t time )
+{
+	if( startTime == 0 )
+		startTime = time;
+
+	srand( time - startTime );
+
+	float red = ( ( rand() % ( 255 - 1 + 1 ) ) + 1 ) / 255.0;
+	float green = ( ( rand() % ( 255 - 1 + 1 ) ) + 1 ) / 255.0;
+	float blue = ( ( rand() % ( 255 - 1 + 1 ) ) + 1 ) / 255.0;
+	float alpha = ( ( rand() % ( 255 - 0 + 1 ) ) + 0 ) / 255.0;	
+
+	glClearColor(red, green, blue, alpha);
 	glClear(GL_COLOR_BUFFER_BIT);
+}
+
+static void surface_configure_callback( void* pData, struct wl_callback* pCallback, uint32_t time )
+{
+	struct ClientObjState* pClientObj = pData;
+	
+	wl_callback_destroy( pCallback );
+
+	pClientObj->mbSurfaceConfigured = 1;
+
+	if( pClientObj->mpFrameCallback == NULL )
+		updateFrame_callback( pClientObj, NULL, time );
 }
 
 static void xdg_surface_configure(
@@ -72,7 +132,6 @@ static void xdg_toplevel_handle_configure(
 
 	// resize
 	wl_egl_window_resize( pClientObjState->mpEglContext.mNativeWindow, width, height, 0, 0 );
-	wl_surface_commit( pClientObjState->mpWlSurface );
 }
 
 static void xdg_toplevel_handle_close(
@@ -139,15 +198,19 @@ int main( int argc, const char* argv[] )
     clientObjState.mpXdgTopLevel = xdg_surface_get_toplevel( clientObjState.mpXdgSurface );
 	AssignXDGToplevelListener(clientObjState.mpXdgTopLevel, &clientObjState);
     xdg_toplevel_set_title(clientObjState.mpXdgTopLevel, surfaceTitle);
-    wl_surface_commit(clientObjState.mpWlSurface);
+	//xdg_toplevel_handle_configure( &clientObjState, clientObjState.mpXdgTopLevel, surfaceWidth, surfaceHeight, NULL );
+	//xdg_toplevel_set_fullscreen( clientObjState.mpXdgTopLevel, clientObjState.mpGlobalObjState->mpOutput );
+	
+	struct wl_callback* configureCallback;
+
+	configureCallback = wl_display_sync( pDisplay );
+	wl_callback_add_listener( configureCallback, &configure_listener, &clientObjState );
 
 	clientObjState.mbCloseApplication = 0;
 
     while( clientObjState.mbCloseApplication != 1 )
     {
-		wl_display_dispatch_pending(clientObjState.mpEglContext.mNativeDisplay);
-		draw_frame();
-		SwapEGLBuffers( &clientObjState.mpEglContext );
+		wl_display_dispatch(pDisplay);
     }
 
 	ShutdownEGLContext( &clientObjState.mpEglContext, clientObjState.mpXdgTopLevel, clientObjState.mpXdgSurface, clientObjState.mpWlSurface );
