@@ -9,6 +9,9 @@
 #include <time.h>
 
 #include <pthread.h>
+#include <semaphore.h>
+
+#define ENABLE_MULTI_THREADING 1
 
 struct ClientObjState;
 
@@ -64,6 +67,12 @@ struct ClientObjState
 
 	int8_t mbCloseApplication;
 	int8_t mbSurfaceConfigured;
+
+	uint8_t mbSignalDisplayTask;
+	sem_t mDisplayTaskSemaphore;
+
+	pthread_t mDispatcherThread;
+	pthread_t mRenderingThread;
 };
 
 static const struct wl_buffer_listener wl_buffer_listener = {
@@ -95,13 +104,19 @@ static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallbac
 	pClientObjState->mpFrameCallback = NULL;
 
 	if( pFrameCallback )
+	{
+		printf("Invalidating Current Frame Callback\n");
 		wl_callback_destroy(pFrameCallback);
+	}
 
 	if( !pClientObjState->mbSurfaceConfigured )
 		return;
 
+	printf("Recording GL Commands\n");
+
 	recordGlCommands( &pClientObjState->mpEglContext, time );
 
+	printf("Creating new Surface Frame Callback\n");
 	pClientObjState->mpFrameCallback = wl_surface_frame( pClientObjState->mpWlSurface );
 	wl_callback_add_listener( pClientObjState->mpFrameCallback, &frame_listener, pClientObjState );
 
@@ -142,8 +157,13 @@ static void surface_configure_callback( void* pData, struct wl_callback* pCallba
 
 	pClientObj->mbSurfaceConfigured = 1;
 
+	printf("Surface Configured\n");
+
 	if( pClientObj->mpFrameCallback == NULL )
+	{
+		printf("Setting Initial Frame Callback\n");
 		updateFrame_callback( pClientObj, NULL, time );
+	}
 }
 
 static void InitGLState()
@@ -237,19 +257,52 @@ static void xdg_toplevel_handle_close(
 	pClientObjState->mbCloseApplication = 1;
 }
 
+void* SurfaceUpdater( void* pArg )
+{
+# if ENABLE_MULTI_THREADING
+	struct ClientObjState* pClientObjState = (struct ClientObjState*) pArg;
+	struct wl_display* pDisplay = pClientObjState->mpWlDisplay;
+
+	printf("Surface Update Thread Identifier : %ld\n", pthread_self());
+
+	pthread_detach( pthread_self() );
+
+	struct wl_callback* configureCallback;
+
+	configureCallback = wl_display_sync( pDisplay );
+	wl_callback_add_listener( configureCallback, &configure_listener, pClientObjState );
+
+	while( pClientObjState->mbCloseApplication != 1 )
+	{
+
+	}
+
+	printf("Terminating SurfaceUpdater Thread\n");
+	pthread_exit(NULL);
+#else
+	struct ClientObjState* pClientObjState = (struct ClientObjState*) pArg;
+	struct wl_display* pDisplay = pClientObjState->mpWlDisplay;
+
+	struct wl_callback* configureCallback;
+
+	configureCallback = wl_display_sync( pDisplay );
+	wl_callback_add_listener( configureCallback, &configure_listener, pClientObjState );
+#endif 
+}
+
 void* DisplayDispatcher( void* pArg )
 {
-#if 0
+#if ENABLE_MULTI_THREADING
 	struct ClientObjState* pClientObjState = (struct ClientObjState*) pArg;
 
 	struct wl_display* pDisplay = pClientObjState->mpWlDisplay;
 
-	pthread_detach( pthread_self() );
-
 	printf("Display Dispatch Thread Identifier : %ld\n", pthread_self());
 
-	pClientObjState->mbCloseApplication = 0;
+	pthread_detach( pthread_self() );
+	sem_wait(&pClientObjState->mDisplayTaskSemaphore);
 
+	pClientObjState->mbCloseApplication = 0;
 	printf("Display Dispatched Running\n");
 
     while( pClientObjState->mbCloseApplication != 1 )
@@ -339,28 +392,44 @@ int main( int argc, const char* argv[] )
 	//xdg_toplevel_handle_configure( &clientObjState, clientObjState.mpXdgTopLevel, surfaceWidth, surfaceHeight, NULL );
 	//xdg_toplevel_set_fullscreen( clientObjState.mpXdgTopLevel, clientObjState.mpGlobalObjState->mpOutput );
 	
-	struct wl_callback* configureCallback;
-
-	configureCallback = wl_display_sync( pDisplay );
-	wl_callback_add_listener( configureCallback, &configure_listener, &clientObjState );
-
-#if 0 
-	pthread_t dispatchThread;
+#if ENABLE_MULTI_THREADING
+	sem_init( &clientObjState.mDisplayTaskSemaphore, 0, 0 );
 
 	pthread_create(
-		&dispatchThread,
+		&clientObjState.mRenderingThread,
+		NULL,
+		&SurfaceUpdater,
+		&clientObjState
+	);
+
+	pthread_create(
+		&clientObjState.mDispatcherThread,
 		NULL,
 		&DisplayDispatcher,
 		&clientObjState
 	);
 
+	printf("Thread Identifiers\n");
+	printf("Rendering Thread : %ld\n", clientObjState.mRenderingThread);
+	printf("Dispatcher Thread : %ld\n", clientObjState.mDispatcherThread);
+
+	if( clientObjState.mbSignalDisplayTask == 0 )
+	{
+		clientObjState.mbSignalDisplayTask = 1;
+		printf("Signaling Dispatch Semaphore\n");
+		sem_post(&clientObjState.mDisplayTaskSemaphore);
+	}
+
 	while( clientObjState.mbCloseApplication != 1 )
 	{
-		sleep(1);
+		printf("Main loop running\n");
+		sleep(1);	
 	}
 #else 
+	SurfaceUpdater( &clientObjState );
 	DisplayDispatcher( &clientObjState );
 #endif 	
+	printf("Shutting Down Client\n");
 	ShutdownEGLContext( &clientObjState.mpEglContext, clientObjState.mpXdgTopLevel, clientObjState.mpXdgSurface, clientObjState.mpWlSurface );
     wl_display_disconnect(pDisplay);
     printf("Client Disconnected from the Display\n");
