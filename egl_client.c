@@ -52,6 +52,7 @@ static GLuint createShader( const char* source, GLenum shaderType );
 
 struct ClientObjState
 {
+	struct wl_display* mpWlDisplay;
     struct GlobalObjectState* mpGlobalObjState;
     struct wl_surface* mpWlSurface;
     struct xdg_surface* mpXdgSurface;
@@ -234,6 +235,18 @@ static void xdg_toplevel_handle_close(
 	pClientObjState->mbCloseApplication = 1;
 }
 
+void DisplayDispatcher( struct ClientObjState* pClientObjState )
+{
+	struct wl_display* pDisplay = pClientObjState->mpWlDisplay;
+
+	pClientObjState->mbCloseApplication = 0;
+
+    while( pClientObjState->mbCloseApplication != 1 )
+    {
+		wl_display_dispatch(pDisplay);
+    }
+}
+
 int main( int argc, const char* argv[] )
 {
     struct wl_display* pDisplay = wl_display_connect(NULL);
@@ -257,6 +270,7 @@ int main( int argc, const char* argv[] )
 	}
 
     struct ClientObjState clientObjState = {0};
+	clientObjState.mpWlDisplay = pDisplay;
 	clientObjState.mpEglContext.mNativeDisplay = pDisplay;
 	clientObjState.mpGlobalObjState = &gObjState;
 
@@ -298,12 +312,7 @@ int main( int argc, const char* argv[] )
 	configureCallback = wl_display_sync( pDisplay );
 	wl_callback_add_listener( configureCallback, &configure_listener, &clientObjState );
 
-	clientObjState.mbCloseApplication = 0;
-
-    while( clientObjState.mbCloseApplication != 1 )
-    {
-		wl_display_dispatch(pDisplay);
-    }
+	DisplayDispatcher( &clientObjState );
 
 	ShutdownEGLContext( &clientObjState.mpEglContext, clientObjState.mpXdgTopLevel, clientObjState.mpXdgSurface, clientObjState.mpWlSurface );
     wl_display_disconnect(pDisplay);
