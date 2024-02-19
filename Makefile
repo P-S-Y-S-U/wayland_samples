@@ -1,6 +1,6 @@
 SERVER_LIBS := -lwayland-server -lrt 
 SIMPLE_CLIENT_LIBS :=  -lrt -lwayland-client
-EGL_CLIENT_LIBS := -lEGL -lGLESv2 -lrt -lwayland-client -lwayland-egl
+EGL_CLIENT_LIBS := -lEGL -lGLESv2 -lrt -lwayland-client -lwayland-egl -lpthread
 
 WAYLAND_INCLUDE_DIR := /usr/include 
 

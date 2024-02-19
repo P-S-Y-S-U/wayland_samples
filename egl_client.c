@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <pthread.h>
+
 struct ClientObjState;
 
 static const char* vertex_shader_text = 
@@ -235,16 +237,46 @@ static void xdg_toplevel_handle_close(
 	pClientObjState->mbCloseApplication = 1;
 }
 
-void DisplayDispatcher( struct ClientObjState* pClientObjState )
+void* DisplayDispatcher( void* pArg )
 {
+#if 0
+	struct ClientObjState* pClientObjState = (struct ClientObjState*) pArg;
+
+	struct wl_display* pDisplay = pClientObjState->mpWlDisplay;
+
+	pthread_detach( pthread_self() );
+
+	printf("Display Dispatch Thread Identifier : %ld\n", pthread_self());
+
+	pClientObjState->mbCloseApplication = 0;
+
+	printf("Display Dispatched Running\n");
+
+    while( pClientObjState->mbCloseApplication != 1 )
+    {
+		printf("before dispatch loop\n");
+		int reslt = wl_display_dispatch(pDisplay);
+		printf("after dispatch loop : %d\n", reslt);
+    }
+
+	printf("Terminating Display Dispatcher Thread\n");
+	pthread_exit(NULL);
+#else 
+	struct ClientObjState* pClientObjState = (struct ClientObjState*) pArg;
+
 	struct wl_display* pDisplay = pClientObjState->mpWlDisplay;
 
 	pClientObjState->mbCloseApplication = 0;
 
+	printf("Display Dispatched Running\n");
+
     while( pClientObjState->mbCloseApplication != 1 )
     {
-		wl_display_dispatch(pDisplay);
+		printf("before dispatch loop\n");
+		int reslt = wl_display_dispatch(pDisplay);
+		printf("after dispatch loop : %d\n", reslt);
     }
+#endif 
 }
 
 int main( int argc, const char* argv[] )
@@ -312,8 +344,23 @@ int main( int argc, const char* argv[] )
 	configureCallback = wl_display_sync( pDisplay );
 	wl_callback_add_listener( configureCallback, &configure_listener, &clientObjState );
 
-	DisplayDispatcher( &clientObjState );
+#if 0 
+	pthread_t dispatchThread;
 
+	pthread_create(
+		&dispatchThread,
+		NULL,
+		&DisplayDispatcher,
+		&clientObjState
+	);
+
+	while( clientObjState.mbCloseApplication != 1 )
+	{
+		sleep(1);
+	}
+#else 
+	DisplayDispatcher( &clientObjState );
+#endif 	
 	ShutdownEGLContext( &clientObjState.mpEglContext, clientObjState.mpXdgTopLevel, clientObjState.mpXdgSurface, clientObjState.mpWlSurface );
     wl_display_disconnect(pDisplay);
     printf("Client Disconnected from the Display\n");
