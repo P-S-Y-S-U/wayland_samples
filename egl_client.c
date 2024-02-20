@@ -107,20 +107,21 @@ static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallbac
 
 	if( pFrameCallback )
 	{
-		printf("Invalidating Current Frame Callback\n");
+		//printf("Invalidating Current Frame Callback\n");
 		wl_callback_destroy(pFrameCallback);
 	}
 
 	if( !pClientObjState->mbSurfaceConfigured )
 		return;
 
-	printf("Recording GL Commands\n");
+	//printf("Recording GL Commands\n");
 
 	recordGlCommands( &pClientObjState->mpEglContext, time );
 
-	printf("Creating new Surface Frame Callback\n");
+	//printf("Creating new Surface Frame Callback\n");
 	pClientObjState->mpFrameCallback = wl_surface_frame( pClientObjState->mpWlSurface );
 	wl_callback_add_listener( pClientObjState->mpFrameCallback, &frame_listener, pClientObjState );
+	//wl_proxy_set_queue( (struct wl_proxy*) pClientObjState->mpFrameCallback, pClientObjState->mpDisplayDispatcherQueue );
 
 	SwapEGLBuffers( &pClientObjState->mpEglContext );
 }
@@ -281,7 +282,7 @@ void* SurfaceUpdater( void* pArg )
 
 	printf("Terminating SurfaceUpdater Thread\n");
 	pthread_exit(NULL);
-#else
+#elif 0
 	struct ClientObjState* pClientObjState = (struct ClientObjState*) pArg;
 	struct wl_display* pDisplay = pClientObjState->mpWlDisplay;
 
@@ -289,6 +290,7 @@ void* SurfaceUpdater( void* pArg )
 	configureCallback = wl_display_sync( pDisplay );
 	wl_callback_add_listener( configureCallback, &configure_listener, pClientObjState );
 
+#if 1
 	if( !pClientObjState->mpDisplayDispatcherQueue )
 	{
 		wl_proxy_set_queue( (struct wl_proxy*) configureCallback, pClientObjState->mpDisplayDispatcherQueue );
@@ -297,6 +299,7 @@ void* SurfaceUpdater( void* pArg )
 	{
 		printf("Display Event Queue Not Assigned");
 	}
+#endif 
 
 #endif 
 }
@@ -312,7 +315,18 @@ void* DisplayDispatcher( void* pArg )
 
 	sem_wait(&pClientObjState->mDisplayTaskSemaphore);
 
-	pClientObjState->mpDisplayDispatcherQueue = wl_display_create_queue( pDisplay );
+	struct wl_callback* configureCallback;
+	configureCallback = wl_display_sync( pDisplay );
+	wl_callback_add_listener( configureCallback, &configure_listener, pClientObjState );
+
+	if( pClientObjState->mpDisplayDispatcherQueue )
+	{
+		wl_proxy_set_queue( (struct wl_proxy*) configureCallback, pClientObjState->mpDisplayDispatcherQueue );
+	}
+	else 
+	{
+		printf("Display Event Queue Not Assigned\n");
+	}
 
 	printf("Display Dispatch Thread Identifier : %ld\n", pthread_self());
 
@@ -324,21 +338,28 @@ void* DisplayDispatcher( void* pArg )
 	int sentBytes = 0;
     while( pClientObjState->mbCloseApplication != 1 )
     {
+		printf("Starting Dispatching Loop\n");
 		while( wl_display_prepare_read_queue( pDisplay, pClientObjState->mpDisplayDispatcherQueue ) != 0 )
 		{
 			printf("Display Events pending while preparing\n");
-			printf("Dispatching pending Display Events\n");
+			//printf("Dispatching pending Display Events\n");
 			numOfEventsDispatched = wl_display_dispatch_queue_pending( pDisplay, pClientObjState->mpDisplayDispatcherQueue );
-			printf("Display Events Dispatched Count : %d\n", numOfEventsDispatched);
+			if( numOfEventsDispatched > 0 )
+				printf("Display Events Dispatched Count : %d\n", numOfEventsDispatched);
 		}
 
+		printf("Flushing Clients\n");
 		sentBytes = wl_display_flush(pDisplay);
 
-		printf("Sent Bytes to the Compositor : %d\n", sentBytes);
+		if( sentBytes > 0 )
+			printf("Sent Bytes to the Compositor : %d\n", sentBytes);
 		numOfEventsRead = wl_display_read_events(pDisplay);
+		printf("Num of Events Read : %d\n", numOfEventsRead);
+		if( numOfEventsRead > 0 )
 		printf("Num of Display Events Read From Queue: %d\n", numOfEventsRead);
 		numOfEventsDispatched = wl_display_dispatch_queue_pending( pDisplay, pClientObjState->mpDisplayDispatcherQueue );
-		printf("Display Events Dispatched Count : %d\n", numOfEventsDispatched);
+		if( numOfEventsDispatched > 0 )
+			printf("Display Events Dispatched Count : %d\n", numOfEventsDispatched);
     }
 
 	printf("Terminating Display Dispatcher Thread\n");
@@ -387,6 +408,7 @@ int main( int argc, const char* argv[] )
 	clientObjState.mpWlDisplay = pDisplay;
 	clientObjState.mpEglContext.mNativeDisplay = pDisplay;
 	clientObjState.mpGlobalObjState = &gObjState;
+	clientObjState.mpDisplayDispatcherQueue = wl_display_create_queue( pDisplay );
 
 	InitEGLContext( &clientObjState.mpEglContext );
 	
@@ -421,6 +443,10 @@ int main( int argc, const char* argv[] )
 	//xdg_toplevel_handle_configure( &clientObjState, clientObjState.mpXdgTopLevel, surfaceWidth, surfaceHeight, NULL );
 	//xdg_toplevel_set_fullscreen( clientObjState.mpXdgTopLevel, clientObjState.mpGlobalObjState->mpOutput );
 	
+	//wl_proxy_set_queue( (struct wl_proxy*) clientObjState.mpWlSurface, clientObjState.mpDisplayDispatcherQueue );
+	//wl_proxy_set_queue( (struct wl_proxy*) clientObjState.mpXdgSurface, clientObjState.mpDisplayDispatcherQueue );
+	//wl_proxy_set_queue( (struct wl_proxy*) clientObjState.mpXdgTopLevel, clientObjState.mpDisplayDispatcherQueue );
+
 #if ENABLE_MULTI_THREADING
 	sem_init( &clientObjState.mDisplayTaskSemaphore, 0, 0 );
 
@@ -438,18 +464,8 @@ int main( int argc, const char* argv[] )
 		sem_post(&clientObjState.mDisplayTaskSemaphore);
 	}
 
-#if 0
-	pthread_create(
-		&clientObjState.mRenderingThread,
-		NULL,
-		&SurfaceUpdater,
-		&clientObjState
-	);
-#else 
 	SurfaceUpdater( &clientObjState );
-#endif
 
-#if 	1
 	printf("Thread Identifiers\n");
 	//printf("Rendering Thread : %ld\n", clientObjState.mRenderingThread);
 	printf("Dispatcher Thread : %ld\n", clientObjState.mDispatcherThread);
@@ -459,13 +475,12 @@ int main( int argc, const char* argv[] )
 	{
 		//printf("Main Dispatch Loop\n");
 		int dispatchedEvents = wl_display_dispatch( clientObjState.mpWlDisplay );
-		printf("Main Dispatched Events : %d\n", dispatchedEvents);
-		sleep(1);	
+		if( dispatchedEvents > 0 )
+		{
+			printf("Main Dispatched Events : %d\n", dispatchedEvents);
+		}
+		//sleep(1);	
 	}
-#else
-	DisplayDispatcher( &clientObjState ); 
-#endif
-
 #else 
 	SurfaceUpdater( &clientObjState );
 	DisplayDispatcher( &clientObjState );
