@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "xdg-shell-client-protocol.h": "c",
-        "gl2.h": "c",
-        "egl_common.h": "c",
-        "wayland-egl.h": "c"
-    }
-}
