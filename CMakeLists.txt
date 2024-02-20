@@ -4,12 +4,14 @@ project(WaylandSamples)
 # CMAKE VAR SETUP
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake ${CMAKE_MODULE_PATH})
+set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 # Find CMAKE package
 find_package(Rt REQUIRED)
 find_package(Wayland REQUIRED)
 find_package(EGL REQUIRED)
 find_package(GLES2 REQUIRED)
+find_package(Threads REQUIRED)
 
 # CMAKE C & CXX FLAGS SETUP
 
@@ -99,4 +101,4 @@ target_include_directories(EGLClient PUBLIC                     $<BUILD_INTERFAC
                                                                 $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
                                                                 $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )
-target_link_libraries(EGLClient PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
+target_link_libraries(EGLClient PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} Threads::Threads)
