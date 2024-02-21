@@ -102,3 +102,8 @@ target_include_directories(EGLClient PUBLIC                     $<BUILD_INTERFAC
                                                                 $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )
 target_link_libraries(EGLClient PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} Threads::Threads)
+
+##########
+
+add_executable(MultiThreadTest multi_thread.c ${XDG_PROTOCOL_SRCS} )
+target_link_libraries(MultiThreadTest PUBLIC ${Wayland_Client_LIBRARY} Threads::Threads)
