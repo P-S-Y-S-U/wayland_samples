@@ -51,9 +51,13 @@ static void recordGlCommands( struct eglContext* pEglContext, uint32_t time );
 
 static void surface_configure_callback( void * pData, struct wl_callback* pCallback, uint32_t time );
 
+static void thread_request_processed_callback( void* pData, struct wl_callback* pCallback, uint32_t time );
+
 static void InitGLState();
 
 static GLuint createShader( const char* source, GLenum shaderType );
+
+void createWaylandEGLSurface( struct ClientObjState* pClientObjState );
 
 struct ClientObjState
 {
@@ -64,6 +68,7 @@ struct ClientObjState
     struct xdg_toplevel* mpXdgTopLevel;
 	struct eglContext mpEglContext;
 	struct wl_callback* mpFrameCallback;
+	struct wl_callback* mpThreadRequestProcessed;
 
 	int8_t mbCloseApplication;
 	int8_t mbSurfaceConfigured;
@@ -87,6 +92,10 @@ static const struct wl_callback_listener frame_listener = {
 
 static const struct wl_callback_listener configure_listener = {
 	surface_configure_callback
+};
+
+static const struct wl_callback_listener thread_request_listener = {
+	thread_request_processed_callback
 };
 
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer )
@@ -121,9 +130,29 @@ static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallbac
 	//printf("Creating new Surface Frame Callback\n");
 	pClientObjState->mpFrameCallback = wl_surface_frame( pClientObjState->mpWlSurface );
 	wl_callback_add_listener( pClientObjState->mpFrameCallback, &frame_listener, pClientObjState );
-	//wl_proxy_set_queue( (struct wl_proxy*) pClientObjState->mpFrameCallback, pClientObjState->mpDisplayDispatcherQueue );
+	wl_proxy_set_queue( (struct wl_proxy*) pClientObjState->mpFrameCallback, pClientObjState->mpDisplayDispatcherQueue );
 
 	SwapEGLBuffers( &pClientObjState->mpEglContext );
+}
+
+static void thread_request_processed_callback( void* pData, struct wl_callback* pThreadRequestCallback, uint32_t time )
+{
+	struct ClientObjState* pClientObjState = pData;
+
+	if( pThreadRequestCallback != pClientObjState->mpThreadRequestProcessed )
+	{
+		printf("Thread Request Callback Not Synced\n");
+		return;
+	}
+	
+	pClientObjState->mpThreadRequestProcessed = NULL;
+
+	printf("Frame Process Request done\n");
+
+	if( pThreadRequestCallback )
+	{
+		wl_callback_destroy( pThreadRequestCallback );
+	}
 }
 
 static void recordGlCommands( struct eglContext* pEglContext, uint32_t time )
@@ -219,6 +248,40 @@ static GLuint createShader( const char* source, GLenum shaderType )
 	return shader;
 }
 
+void createWaylandEGLSurface( struct ClientObjState* pClientObjState )
+{
+	InitEGLContext( &pClientObjState->mpEglContext );
+	
+    pClientObjState->mpWlSurface = wl_compositor_create_surface(pClientObjState->mpGlobalObjState->mpCompositor);
+	if( !pClientObjState->mpWlSurface )
+	{
+		printf("Failed to Create Wayland Surface\n");
+		return;
+	}
+
+	pClientObjState->mpXdgSurface = xdg_wm_base_get_xdg_surface(
+		pClientObjState->mpGlobalObjState->mpXdgWmBase, pClientObjState->mpWlSurface
+	);
+	if( !pClientObjState->mpXdgSurface )
+	{
+		printf("Failed to create Xdg Surface\n");
+		return;
+	}
+
+    AssignXDGSurfaceListener( pClientObjState->mpXdgSurface, pClientObjState );
+
+	uint16_t surfaceWidth = 800;
+	uint16_t surfaceHeight = 600;
+	const char* surfaceTitle = "EGL Client";
+
+	CreateEGLSurface( pClientObjState->mpWlSurface, surfaceWidth, surfaceHeight, &pClientObjState->mpEglContext );
+	InitGLState();
+
+    pClientObjState->mpXdgTopLevel = xdg_surface_get_toplevel( pClientObjState->mpXdgSurface );
+	AssignXDGToplevelListener(pClientObjState->mpXdgTopLevel, pClientObjState);
+    xdg_toplevel_set_title(pClientObjState->mpXdgTopLevel, surfaceTitle);
+}
+
 static void xdg_surface_configure(
 	void* pData, struct xdg_surface* pXdgSurface, uint32_t serial
 )
@@ -260,54 +323,11 @@ static void xdg_toplevel_handle_close(
 	pClientObjState->mbCloseApplication = 1;
 }
 
-void* SurfaceUpdater( void* pArg )
-{
-# if 0
-	struct ClientObjState* pClientObjState = (struct ClientObjState*) pArg;
-	struct wl_display* pDisplay = pClientObjState->mpWlDisplay;
-
-	printf("Surface Update Thread Identifier : %ld\n", pthread_self());
-
-	pthread_detach( pthread_self() );
-
-	struct wl_callback* configureCallback;
-
-	configureCallback = wl_display_sync( pDisplay );
-	wl_callback_add_listener( configureCallback, &configure_listener, pClientObjState );
-
-	while( pClientObjState->mbCloseApplication != 1 )
-	{
-		//printf("Running Surface Updater\n");
-	}
-
-	printf("Terminating SurfaceUpdater Thread\n");
-	pthread_exit(NULL);
-#elif 0
-	struct ClientObjState* pClientObjState = (struct ClientObjState*) pArg;
-	struct wl_display* pDisplay = pClientObjState->mpWlDisplay;
-
-	struct wl_callback* configureCallback;
-	configureCallback = wl_display_sync( pDisplay );
-	wl_callback_add_listener( configureCallback, &configure_listener, pClientObjState );
-
-#if 1
-	if( !pClientObjState->mpDisplayDispatcherQueue )
-	{
-		wl_proxy_set_queue( (struct wl_proxy*) configureCallback, pClientObjState->mpDisplayDispatcherQueue );
-	}
-	else 
-	{
-		printf("Display Event Queue Not Assigned");
-	}
-#endif 
-
-#endif 
-}
-
 void* DisplayDispatcher( void* pArg )
 {
 #if ENABLE_MULTI_THREADING
 	struct ClientObjState* pClientObjState = (struct ClientObjState*) pArg;
+	pClientObjState->mpDisplayDispatcherQueue = wl_display_create_queue( pClientObjState->mpWlDisplay );
 
 	struct wl_display* pDisplay = pClientObjState->mpWlDisplay;
 
@@ -315,18 +335,12 @@ void* DisplayDispatcher( void* pArg )
 
 	sem_wait(&pClientObjState->mDisplayTaskSemaphore);
 
+	createWaylandEGLSurface( pClientObjState );
+	
 	struct wl_callback* configureCallback;
 	configureCallback = wl_display_sync( pDisplay );
 	wl_callback_add_listener( configureCallback, &configure_listener, pClientObjState );
-
-	if( pClientObjState->mpDisplayDispatcherQueue )
-	{
-		wl_proxy_set_queue( (struct wl_proxy*) configureCallback, pClientObjState->mpDisplayDispatcherQueue );
-	}
-	else 
-	{
-		printf("Display Event Queue Not Assigned\n");
-	}
+	wl_proxy_set_queue( (struct wl_proxy*) configureCallback, pClientObjState->mpDisplayDispatcherQueue );
 
 	printf("Display Dispatch Thread Identifier : %ld\n", pthread_self());
 
@@ -338,28 +352,20 @@ void* DisplayDispatcher( void* pArg )
 	int sentBytes = 0;
     while( pClientObjState->mbCloseApplication != 1 )
     {
-		printf("Starting Dispatching Loop\n");
-		while( wl_display_prepare_read_queue( pDisplay, pClientObjState->mpDisplayDispatcherQueue ) != 0 )
-		{
-			printf("Display Events pending while preparing\n");
-			//printf("Dispatching pending Display Events\n");
-			numOfEventsDispatched = wl_display_dispatch_queue_pending( pDisplay, pClientObjState->mpDisplayDispatcherQueue );
-			if( numOfEventsDispatched > 0 )
-				printf("Display Events Dispatched Count : %d\n", numOfEventsDispatched);
-		}
+		numOfEventsDispatched = wl_display_dispatch_queue( pDisplay, pClientObjState->mpDisplayDispatcherQueue );
 
-		printf("Flushing Clients\n");
-		sentBytes = wl_display_flush(pDisplay);
-
-		if( sentBytes > 0 )
-			printf("Sent Bytes to the Compositor : %d\n", sentBytes);
-		numOfEventsRead = wl_display_read_events(pDisplay);
-		printf("Num of Events Read : %d\n", numOfEventsRead);
-		if( numOfEventsRead > 0 )
-		printf("Num of Display Events Read From Queue: %d\n", numOfEventsRead);
-		numOfEventsDispatched = wl_display_dispatch_queue_pending( pDisplay, pClientObjState->mpDisplayDispatcherQueue );
 		if( numOfEventsDispatched > 0 )
-			printf("Display Events Dispatched Count : %d\n", numOfEventsDispatched);
+			printf("Custom Queue Dispatched Events :%d\n", numOfEventsDispatched);
+
+#if 0
+		pClientObjState->mpThreadRequestProcessed = wl_display_sync( pClientObjState->mpWlDisplay );
+		wl_callback_add_listener( 
+			pClientObjState->mpThreadRequestProcessed, 
+			&thread_request_listener, 
+			pClientObjState 
+		);
+		wl_proxy_set_queue( (struct wl_proxy*) pClientObjState->mpThreadRequestProcessed, pClientObjState->mpDisplayDispatcherQueue );
+#endif
     }
 
 	printf("Terminating Display Dispatcher Thread\n");
@@ -408,44 +414,6 @@ int main( int argc, const char* argv[] )
 	clientObjState.mpWlDisplay = pDisplay;
 	clientObjState.mpEglContext.mNativeDisplay = pDisplay;
 	clientObjState.mpGlobalObjState = &gObjState;
-	clientObjState.mpDisplayDispatcherQueue = wl_display_create_queue( pDisplay );
-
-	InitEGLContext( &clientObjState.mpEglContext );
-	
-    clientObjState.mpWlSurface = wl_compositor_create_surface(gObjState.mpCompositor);
-	if( !clientObjState.mpWlSurface )
-	{
-		printf("Failed to Create Wayland Surface\n");
-		return 1;
-	}
-
-	clientObjState.mpXdgSurface = xdg_wm_base_get_xdg_surface(
-		clientObjState.mpGlobalObjState->mpXdgWmBase, clientObjState.mpWlSurface
-	);
-	if( !clientObjState.mpXdgSurface )
-	{
-		printf("Failed to create Xdg Surface\n");
-		return 1;
-	}
-
-    AssignXDGSurfaceListener( clientObjState.mpXdgSurface, &clientObjState );
-
-	uint16_t surfaceWidth = 800;
-	uint16_t surfaceHeight = 600;
-	const char* surfaceTitle = "EGL Client";
-
-	CreateEGLSurface( clientObjState.mpWlSurface, surfaceWidth, surfaceHeight, &clientObjState.mpEglContext );
-	InitGLState();
-
-    clientObjState.mpXdgTopLevel = xdg_surface_get_toplevel( clientObjState.mpXdgSurface );
-	AssignXDGToplevelListener(clientObjState.mpXdgTopLevel, &clientObjState);
-    xdg_toplevel_set_title(clientObjState.mpXdgTopLevel, surfaceTitle);
-	//xdg_toplevel_handle_configure( &clientObjState, clientObjState.mpXdgTopLevel, surfaceWidth, surfaceHeight, NULL );
-	//xdg_toplevel_set_fullscreen( clientObjState.mpXdgTopLevel, clientObjState.mpGlobalObjState->mpOutput );
-	
-	//wl_proxy_set_queue( (struct wl_proxy*) clientObjState.mpWlSurface, clientObjState.mpDisplayDispatcherQueue );
-	//wl_proxy_set_queue( (struct wl_proxy*) clientObjState.mpXdgSurface, clientObjState.mpDisplayDispatcherQueue );
-	//wl_proxy_set_queue( (struct wl_proxy*) clientObjState.mpXdgTopLevel, clientObjState.mpDisplayDispatcherQueue );
 
 #if ENABLE_MULTI_THREADING
 	sem_init( &clientObjState.mDisplayTaskSemaphore, 0, 0 );
@@ -464,10 +432,7 @@ int main( int argc, const char* argv[] )
 		sem_post(&clientObjState.mDisplayTaskSemaphore);
 	}
 
-	SurfaceUpdater( &clientObjState );
-
 	printf("Thread Identifiers\n");
-	//printf("Rendering Thread : %ld\n", clientObjState.mRenderingThread);
 	printf("Dispatcher Thread : %ld\n", clientObjState.mDispatcherThread);
 
 
@@ -479,14 +444,16 @@ int main( int argc, const char* argv[] )
 		{
 			printf("Main Dispatched Events : %d\n", dispatchedEvents);
 		}
+		//printf("Performed Dispatcher Main Queue\n");
 		//sleep(1);	
 	}
 #else 
-	SurfaceUpdater( &clientObjState );
 	DisplayDispatcher( &clientObjState );
 #endif 	
 	printf("Shutting Down Client\n");
 	ShutdownEGLContext( &clientObjState.mpEglContext, clientObjState.mpXdgTopLevel, clientObjState.mpXdgSurface, clientObjState.mpWlSurface );
+
+	wl_event_queue_destroy( clientObjState.mpDisplayDispatcherQueue);
     wl_display_disconnect(pDisplay);
     printf("Client Disconnected from the Display\n");
 
