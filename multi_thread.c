@@ -6,7 +6,8 @@
 
 #include "global_registry_handle.h"
 
-#define WRONG_MULTI_THREAD_SYNC_PROCESS 1
+#define CORRECT_MULTI_THREAD_SYNC_PROCESS 1
+#define WRONG_MULTI_THREAD_SYNC_PROCESS 0
 
 static void sync_callback( void* data, struct wl_callback* pCallback, uint32_t serial );
 static void sync_callback_roundtrip(void *data, struct wl_callback * pCallback, uint32_t serial);
@@ -148,5 +149,75 @@ int main( int argc, const char* argv[] )
     wl_event_queue_destroy(clientObjState.pThreadEventQueue);
     wl_display_disconnect(clientObjState.pDisplay);
 }   
+
+#else
+void* ThreadedFunc( void* pArg )
+{
+    struct ClientObjState* pClientObjState = (struct ClientObjState*) pArg;
+    pthread_detach( pthread_self() );
+
+    pClientObjState->pThreadEventQueue = wl_display_create_queue( pClientObjState->pDisplay );
+
+    int roundtrippedReq = 0;
+    int processedEvents = 0;
+
+    pClientObjState->pCallback2 = wl_display_sync( pClientObjState->pDisplay );
+    wl_callback_add_listener( pClientObjState->pCallback2, &objSync_listener_roundtrip, pClientObjState);
+
+    int threadedEventFired = wl_display_roundtrip_queue( pClientObjState->pDisplay, pClientObjState->pThreadEventQueue );
+    printf("Threaded Events Fired in ThreadFunc : %d\n", threadedEventFired);
+
+    while( !pClientObjState->mbThreadCheck )
+    {
+        wl_display_dispatch( pClientObjState->pDisplay );
+        printf("Performing Threaded Main Dispatch\n");
+    }
+
+    pthread_exit(NULL);
+}
+
+int main( int argc, const char* argv[] )
+{
+    struct ClientObjState clientObjState = {0};
+    struct GlobalObjectState gObjState = {0};
+
+    sem_init(&clientObjState.mSem1, 0, 0 );
+    sem_init(&clientObjState.mSem2, 0, 0 );
+    sem_init(&clientObjState.mSem3, 0, 0 );
+    sem_init(&clientObjState.mSem4, 0, 0 );
+
+    clientObjState.pDisplay = wl_display_connect( NULL );
+
+    struct wl_registry* pRegistry = wl_display_get_registry(clientObjState.pDisplay);
+    wl_registry_add_listener(pRegistry, &g_registryListener, &gObjState);
+
+    printf("Performing Main Queue Roundtrip\n");
+    int roundTrippedReq = wl_display_roundtrip(clientObjState.pDisplay);
+    printf("Processed Requests after Main Queue Roundtrip : %d\n", roundTrippedReq);
+
+    pthread_t thread1;
+
+    pthread_create(
+        &thread1,
+        NULL,
+        &ThreadedFunc,
+        &clientObjState
+    );
+
+    clientObjState.pCallback1 = wl_display_sync( clientObjState.pDisplay );
+    wl_callback_add_listener( clientObjState.pCallback1, &objSync_listener, &clientObjState );
+
+    while( !clientObjState.mbThreadCheck || !clientObjState.mbMainCheck )
+    {
+        
+    }
+    printf("Finshing Main Work\n");
+
+    int threadedEventFired = wl_display_roundtrip_queue( clientObjState.pDisplay, clientObjState.pThreadEventQueue );
+    printf("Threaded Events Fired in MainFunc: %d\n", threadedEventFired);
+
+    wl_event_queue_destroy(clientObjState.pThreadEventQueue);
+    wl_display_disconnect(clientObjState.pDisplay);
+}
 
 #endif 
