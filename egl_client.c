@@ -280,6 +280,10 @@ void createWaylandEGLSurface( struct ClientObjState* pClientObjState )
     pClientObjState->mpXdgTopLevel = xdg_surface_get_toplevel( pClientObjState->mpXdgSurface );
 	AssignXDGToplevelListener(pClientObjState->mpXdgTopLevel, pClientObjState);
     xdg_toplevel_set_title(pClientObjState->mpXdgTopLevel, surfaceTitle);
+
+	wl_proxy_set_queue( (struct wl_proxy*) pClientObjState->mpWlSurface, pClientObjState->mpDisplayDispatcherQueue );
+	wl_proxy_set_queue( (struct wl_proxy*) pClientObjState->mpXdgSurface, pClientObjState->mpDisplayDispatcherQueue );
+	wl_proxy_set_queue( (struct wl_proxy*) pClientObjState->mpXdgTopLevel, pClientObjState->mpDisplayDispatcherQueue );
 }
 
 static void xdg_surface_configure(
@@ -345,11 +349,16 @@ void* DisplayDispatcher( void* pArg )
 	printf("Display Dispatch Thread Identifier : %ld\n", pthread_self());
 
 	pClientObjState->mbCloseApplication = 0;
-	printf("Display Dispatched Running\n");
 
 	int numOfEventsDispatched = 0;
 	int numOfEventsRead = 0;
 	int sentBytes = 0;
+	int numOfRequestsProcessed = 0;
+
+	printf("Performing RoundTrip on Thread Queue\n");
+	numOfRequestsProcessed = wl_display_roundtrip_queue( pClientObjState->mpWlDisplay, pClientObjState->mpDisplayDispatcherQueue );
+	printf("Num of Requests Processed after Roundtrip : %d\n", numOfRequestsProcessed);
+	printf("Display Dispatched Running\n");
     while( pClientObjState->mbCloseApplication != 1 )
     {
 		numOfEventsDispatched = wl_display_dispatch_queue( pDisplay, pClientObjState->mpDisplayDispatcherQueue );
