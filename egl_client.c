@@ -13,6 +13,9 @@
 
 #define ENABLE_MULTI_THREADING 1
 
+#define FRAME_IDENTIFIER_MINIMIZE 25
+#define FRAME_IDENTIFIER_RELAUNCH 50
+
 struct ClientObjState;
 
 static const char* vertex_shader_text = 
@@ -80,6 +83,11 @@ struct ClientObjState
 	pthread_t mRenderingThread;
 
 	struct wl_event_queue* mpDisplayDispatcherQueue;
+
+	uint8_t mbNullifyBuffer;
+	uint8_t mbCommitEglBuffer;
+
+	uint64_t mFrameEventsDone;
 };
 
 static const struct wl_buffer_listener wl_buffer_listener = {
@@ -118,13 +126,14 @@ static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallbac
 	{
 		//printf("Invalidating Current Frame Callback\n");
 		wl_callback_destroy(pFrameCallback);
+		pClientObjState->mFrameEventsDone++;
 	}
 
 	if( !pClientObjState->mbSurfaceConfigured )
 		return;
 
 	//printf("Recording GL Commands\n");
-
+	
 	recordGlCommands( &pClientObjState->mpEglContext, time );
 
 	//printf("Creating new Surface Frame Callback\n");
@@ -132,7 +141,41 @@ static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallbac
 	wl_callback_add_listener( pClientObjState->mpFrameCallback, &frame_listener, pClientObjState );
 	wl_proxy_set_queue( (struct wl_proxy*) pClientObjState->mpFrameCallback, pClientObjState->mpDisplayDispatcherQueue );
 
-	SwapEGLBuffers( &pClientObjState->mpEglContext );
+	if( pClientObjState->mFrameEventsDone >= FRAME_IDENTIFIER_MINIMIZE && pClientObjState->mFrameEventsDone <= FRAME_IDENTIFIER_RELAUNCH )
+	{
+		pClientObjState->mbNullifyBuffer = 1;
+		pClientObjState->mbCommitEglBuffer = 0;
+	}
+	else if( pClientObjState->mFrameEventsDone < FRAME_IDENTIFIER_MINIMIZE || pClientObjState->mFrameEventsDone >= FRAME_IDENTIFIER_RELAUNCH )
+	{
+		pClientObjState->mbNullifyBuffer = 0;
+		pClientObjState->mbCommitEglBuffer = 1;
+	}
+
+	if( pClientObjState->mbNullifyBuffer )
+	{
+		wl_surface_attach( 
+			pClientObjState->mpWlSurface,
+			NULL,
+			0, 0
+		);
+		wl_surface_damage( 
+			pClientObjState->mpWlSurface,
+			0, 0,
+			800, 600
+		);
+		wl_surface_commit( pClientObjState->mpWlSurface );
+	}
+
+	if( pClientObjState->mbCommitEglBuffer )
+	{
+		SwapEGLBuffers( &pClientObjState->mpEglContext );
+	}
+
+	if( pClientObjState->mFrameEventsDone >= FRAME_IDENTIFIER_RELAUNCH )
+	{
+		pClientObjState->mFrameEventsDone = 0;
+	}
 }
 
 static void thread_request_processed_callback( void* pData, struct wl_callback* pThreadRequestCallback, uint32_t time )
