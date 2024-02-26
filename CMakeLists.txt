@@ -6,10 +6,13 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/CMake ${CMAKE_MODULE_PATH})
 
 # Find CMAKE package
+find_package(PkgConfig REQUIRED)
 find_package(Rt REQUIRED)
 find_package(Wayland REQUIRED)
 find_package(EGL REQUIRED)
 find_package(GLES2 REQUIRED)
+
+pkg_check_modules(LibWeston REQUIRED libweston-14)
 
 # CMAKE C & CXX FLAGS SETUP
 
@@ -100,3 +103,14 @@ target_include_directories(EGLClient PUBLIC                     $<BUILD_INTERFAC
                                                                 $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )
 target_link_libraries(EGLClient PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
+
+add_executable(WestonEGLClient weston_egl_client.c ${XDG_PROTOCOL_SRCS})
+target_include_directories(WestonEGLClient PUBLIC                   $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
+                                                                    $<BUILD_INTERFACE:${Wayland_Client_INCLUDE_DIR}>
+                                                                    $<BUILD_INTERFACE:${Wayland_Egl_INCLUDE_DIR}>
+                                                                    $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
+                                                                    $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
+                                                                    $<BUILD_INTERFACE:${LibWeston_INCLUDE_DIRS}>
+                                                                )
+target_link_directories(WestonEGLClient PUBLIC  ${LibWeston_LIBRARY_DIRS})                                                                
+target_link_libraries(WestonEGLClient PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} ${LibWeston_LIBRARIES})
