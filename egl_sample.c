@@ -70,6 +70,26 @@ static void xdg_toplevel_handle_close(
 
 }
 
+static void xdg_toplevel_handle_configure_bounds(
+    void* pData,
+    struct xdg_toplevel* pXdgTopLevel,
+    int32_t width,
+    int32_t height
+)
+{
+	// no window geometry event, should ignore
+	if( width == 0 && height == 0 ) return;
+}
+
+static void xdg_toplevel_handle_compositor_capabilities(
+    void* pData,
+    struct xdg_toplevel* pXdgTopLevel,
+    struct wl_array* pCapabilities
+)
+{
+
+}
+
 int main(int argc, char ** argv)
 {       
         wlDisplay = wl_display_connect(NULL);

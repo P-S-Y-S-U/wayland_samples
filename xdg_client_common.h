@@ -23,10 +23,24 @@ static void xdg_toplevel_handle_close(
     void* pData,
     struct xdg_toplevel* pXdgTopLevel
 );
+static void xdg_toplevel_handle_configure_bounds(
+    void* pData,
+    struct xdg_toplevel* xdg_toplevel,
+    int32_t width,
+    int32_t height
+);
+static void xdg_toplevel_handle_compositor_capabilities(
+    void* pData,
+    struct xdg_toplevel* xdg_toplevel,
+    struct wl_array* pCapabilities
+);
+
 
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
     .configure = xdg_toplevel_handle_configure,
-    .close = xdg_toplevel_handle_close
+    .close = xdg_toplevel_handle_close,
+    .configure_bounds = xdg_toplevel_handle_configure_bounds,
+    .wm_capabilities = xdg_toplevel_handle_compositor_capabilities
 };
 
 void AssignXDGSurfaceListener( struct xdg_surface* pXdgSurface, void* pClientUsrData )

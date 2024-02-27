@@ -233,7 +233,23 @@ static void xdg_toplevel_handle_close(
 	struct ClientObjState* pClientObjState = pData;
 	pClientObjState->mbCloseApplication = 1;
 }
+static void xdg_toplevel_handle_configure_bounds(
+    void* pData,
+    struct xdg_toplevel* pXdgTopLevel,
+    int32_t width,
+    int32_t height
+)
+{
+}
 
+static void xdg_toplevel_handle_compositor_capabilities(
+    void* pData,
+    struct xdg_toplevel* pXdgTopLevel,
+    struct wl_array* pCapabilities
+)
+{
+
+}
 int main( int argc, const char* argv[] )
 {
     struct wl_display* pDisplay = wl_display_connect(NULL);

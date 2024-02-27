@@ -136,11 +136,6 @@ static void surface_configure_callback( void* pData, struct wl_callback* pCallba
 	struct ClientObjState* pClientObj = pData;
 	
 	wl_callback_destroy( pCallback );
-
-	pClientObj->mbSurfaceConfigured = 1;
-
-	if( pClientObj->mpFrameCallback == NULL )
-		updateFrame_callback( pClientObj, NULL, time );
 }
 
 static void InitGLState()
@@ -199,6 +194,12 @@ static void xdg_surface_configure(
 {
     struct ClientObjState* pClientObjState = pData;
 	xdg_surface_ack_configure(pXdgSurface, serial);
+	printf("Xdg Surface Configured");
+
+	pClientObjState->mbSurfaceConfigured = 1;
+
+	if( pClientObjState->mpFrameCallback == NULL )
+		updateFrame_callback( pClientObjState, NULL, time );
 }
 
 static void xdg_toplevel_handle_configure(
@@ -232,6 +233,25 @@ static void xdg_toplevel_handle_close(
 {
 	struct ClientObjState* pClientObjState = pData;
 	pClientObjState->mbCloseApplication = 1;
+}
+
+static void xdg_toplevel_handle_configure_bounds(
+    void* pData,
+    struct xdg_toplevel* pXdgTopLevel,
+    int32_t width,
+    int32_t height
+)
+{
+	// no window geometry event, should ignore
+	if( width == 0 && height == 0 ) return;
+}
+
+static void xdg_toplevel_handle_compositor_capabilities(
+    void* pData,
+    struct xdg_toplevel* pXdgTopLevel,
+    struct wl_array* pCapabilities
+)
+{
 }
 
 int main( int argc, const char* argv[] )
@@ -292,9 +312,9 @@ int main( int argc, const char* argv[] )
     xdg_toplevel_set_title(clientObjState.mpXdgTopLevel, surfaceTitle);
 	//xdg_toplevel_handle_configure( &clientObjState, clientObjState.mpXdgTopLevel, surfaceWidth, surfaceHeight, NULL );
 	//xdg_toplevel_set_fullscreen( clientObjState.mpXdgTopLevel, clientObjState.mpGlobalObjState->mpOutput );
-	
-	struct wl_callback* configureCallback;
+	wl_surface_commit(clientObjState.mpWlSurface);
 
+	struct wl_callback* configureCallback;
 	configureCallback = wl_display_sync( pDisplay );
 	wl_callback_add_listener( configureCallback, &configure_listener, &clientObjState );
 
