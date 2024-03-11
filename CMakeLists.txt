@@ -79,6 +79,12 @@ target_include_directories(EGLInfo  PUBLIC                      $<BUILD_INTERFAC
                                                                 )
 target_link_libraries(EGLInfo PUBLIC ${EGL_LIBRARY})
 
+add_executable(GLInfo gl_info.c)
+target_include_directories(GLInfo  PUBLIC                   $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
+                                                            $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
+                                                            $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
+                                                            )
+target_link_libraries(GLInfo PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY}) 
 ##########
 
 add_executable(EGLSample egl_sample.c ${XDG_PROTOCOL_SRCS})
