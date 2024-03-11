@@ -106,3 +106,12 @@ target_include_directories(EGLClient PUBLIC                     $<BUILD_INTERFAC
                                                                 $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )
 target_link_libraries(EGLClient PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
+
+add_executable(PBOSample pbo_sample.c ${XDG_PROTOCOL_SRCS})
+target_include_directories(PBOSample PUBLIC                     $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
+                                                                $<BUILD_INTERFACE:${Wayland_Client_INCLUDE_DIR}>
+                                                                $<BUILD_INTERFACE:${Wayland_Egl_INCLUDE_DIR}>
+                                                                $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
+                                                                $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
+                                                                )
+target_link_libraries(PBOSample PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
