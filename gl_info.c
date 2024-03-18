@@ -102,9 +102,16 @@ int main( int* argc, int* argv[] )
     EGLSurface eglSurface = eglCreateWindowSurface( eglDisplay, eglConfig, eglNativeWindow, NULL );
     eglMakeCurrent( eglDisplay, eglSurface, eglSurface, eglContext );
 
-    const char* extension = 
-        (const char*)glGetString(GL_EXTENSIONS);
-    printf("Ext : \n\t %s\n", extension); 
+    char* extension = 
+        (char*)glGetString(GL_EXTENSIONS);
+    
+    for( uint32_t i = 0; extension[i] != '\0'; i++ )
+    {
+        if( extension[i] == ' ' )
+            extension[i] = '\n';
+    }
+
+    printf("GL Extensions : \n %s\n", extension); 
     
     eglDestroySurface( wlDisplay, eglSurface );
     wl_egl_window_destroy( eglNativeWindow );
