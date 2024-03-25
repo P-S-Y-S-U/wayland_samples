@@ -10,6 +10,7 @@ find_package(Rt REQUIRED)
 find_package(Wayland REQUIRED)
 find_package(EGL REQUIRED)
 find_package(GLES2 REQUIRED)
+find_package(cglm CONFIG REQUIRED)
 
 # CMAKE C & CXX FLAGS SETUP
 
@@ -124,3 +125,12 @@ target_include_directories(TexReaderSample PUBLIC                     $<BUILD_IN
                                                                 $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )
 target_link_libraries(TexReaderSample PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
+
+add_executable(AntiAliasing anti_aliasing.c ${XDG_PROTOCOL_SRCS})
+target_include_directories(AntiAliasing PUBLIC                      $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
+                                                                    $<BUILD_INTERFACE:${Wayland_Client_INCLUDE_DIR}>
+                                                                    $<BUILD_INTERFACE:${Wayland_Egl_INCLUDE_DIR}>
+                                                                    $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
+                                                                    $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
+                                                                )
+target_link_libraries(AntiAliasing PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} cglm::cglm m)
