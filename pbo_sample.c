@@ -15,6 +15,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
 
+#include "TexReader.h"
+
 struct wl_display* wlDisplay;
 struct wl_compositor* wlCompositor;
 struct xdg_wm_base* xdgWmBase;
@@ -31,24 +33,13 @@ uint32_t surface_height = 480;
 uint32_t initialFrameCallback = 0;
 uint32_t SurfacePresented = 0;
 uint32_t exitPG = 0;
-uint32_t dumpTimes = 5;
-
-uint32_t currentDownload = 0;
-uint32_t numOfPBOs = 1;
-uint32_t numOfDownload = 0;
-uint32_t downloadLimit = 2;
-
-PFNGLMAPBUFFERRANGEEXTPROC gl_map_buffer_range_EXT = NULL;
-PFNGLUNMAPBUFFEROESPROC gl_unmap_buffer_oes = NULL;
-PFNGLGENBUFFERSPROC gl_gen_buffers = NULL;
+uint32_t dumpTimes = 2;
 
 GLuint* pboBuffers;
 void* pixelDump;
+size_t dumpSizeInBytes;
 
 static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallback, uint32_t time );
-static void CreatePBO();
-static void CaptureFrameUsingPBO();
-static void DeletePBO();
 
 static const struct wl_callback_listener g_frameListener = {
     .done = updateFrame_callback
@@ -101,7 +92,20 @@ static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallbac
     else
     {
         SurfacePresented = 1;
-        CaptureFrameUsingPBO();
+        if( dumpTimes == 0 )
+            exitPG = 1;
+        int16_t reslt = DownloadUsingPBO( 
+            DEFAULT_FRAME_BUFFER,
+            0, 0,
+            surface_width, surface_height,
+            -1, 
+            GL_RGBA,
+            0,
+            4,
+            pixelDump,
+            dumpSizeInBytes
+        );
+        dumpTimes--;
     }
     
     {
@@ -123,9 +127,14 @@ static void xdg_surface_configure(
 	xdg_surface_ack_configure(pXdgSurface, serial);
 
     if( !initialFrameCallback )
+    {
+        InitTexReader(
+            1, 1
+        );
         updateFrame_callback(
             NULL, NULL, 0
         );
+    }
 }
 
 static const struct xdg_surface_listener g_xdgSurfaceListener = {
@@ -146,105 +155,6 @@ static void xdg_toplevel_handle_configure(
 static const struct xdg_toplevel_listener g_xdgTopLevelListener = {
     .configure = xdg_toplevel_handle_configure
 };
-
-static void CreatePBO()
-{
-    if( !gl_map_buffer_range_EXT ||
-        !gl_unmap_buffer_oes ||
-        !gl_gen_buffers 
-    )
-    {
-        gl_map_buffer_range_EXT = (void*) eglGetProcAddress("glMapBufferRangeEXT");
-        gl_unmap_buffer_oes = (void*) eglGetProcAddress( "glUnmapBufferOES" );
-        gl_gen_buffers = (void*) eglGetProcAddress( "glGenBuffers" );
-    }
-
-    size_t bufferSizeInBytes = surface_width * surface_height * 4;
-    pboBuffers = malloc( numOfPBOs * sizeof(GLuint) );
-    
-    gl_gen_buffers( numOfPBOs, pboBuffers );
-
-    for( uint16_t i = 0; i < numOfPBOs; i++ )
-    {
-        glBindBuffer( GL_PIXEL_PACK_BUFFER_NV, pboBuffers[i] );
-        glBufferData(
-            GL_PIXEL_PACK_BUFFER_NV,
-            bufferSizeInBytes,
-            NULL,
-            GL_STREAM_DRAW
-        );
-    }
-
-    glBindBuffer( GL_PIXEL_PACK_BUFFER_NV, 0 );
-}
-
-static void CaptureFrameUsingPBO()
-{
-    size_t bufferSizeInBytes = surface_width * surface_height * 4;
-    uint32_t bytespp = 4;
-    GLenum imgFormat = GL_RGBA;
-
-    if( numOfDownload < numOfPBOs )
-    {
-        glBindBuffer(GL_PIXEL_PACK_BUFFER_NV, pboBuffers[currentDownload]);
-        glPixelStorei(GL_PACK_ALIGNMENT, bytespp );
-        glReadPixels(
-            0, 0,
-            surface_width, surface_height,
-            imgFormat,
-            GL_UNSIGNED_BYTE,
-            0
-        );
-    }
-    else 
-    {
-        glBindBuffer(GL_PIXEL_PACK_BUFFER_NV, pboBuffers[currentDownload]);
-
-        uint8_t* mappedBuffer = gl_map_buffer_range_EXT(
-            GL_PIXEL_PACK_BUFFER_NV,
-            0,
-            bufferSizeInBytes, 
-            GL_MAP_READ_BIT_EXT
-        );
-
-        if( mappedBuffer != NULL )
-        {
-            memcpy(pixelDump, mappedBuffer, bufferSizeInBytes);
-            gl_unmap_buffer_oes(GL_PIXEL_PACK_BUFFER_NV);
-        }
-        else
-        {
-            printf("Couldn't Map Buffer");
-        }
-
-        glPixelStorei(GL_PACK_ALIGNMENT, bytespp);
-        glReadPixels(
-          0, 0, 
-          surface_width, 
-          surface_height, 
-          imgFormat,
-          GL_UNSIGNED_BYTE, 
-          0
-        );
-    }
-    currentDownload++;
-    currentDownload = currentDownload % numOfPBOs;
-    numOfDownload++;
-
-    if ( numOfDownload > downloadLimit )
-    {
-        numOfDownload = numOfPBOs;
-        exitPG = 1;
-    }
-    
-    //sleep(1);
-}
-
-static void DeletePBO()
-{
-    glBindBuffer( GL_PIXEL_PACK_BUFFER_NV, 0 );
-    glDeleteBuffers( numOfPBOs, pboBuffers );
-}
 
 int main( int* argc, int* argv[] )
 {
@@ -330,15 +240,15 @@ int main( int* argc, int* argv[] )
         NULL
     );
 
-    pixelDump = malloc( surface_width * surface_height * 4 );
-    CreatePBO();
+    dumpSizeInBytes = surface_width * surface_height * 4;
+    pixelDump = malloc( dumpSizeInBytes );
 
     wl_surface_commit( wlSurface );
 
     while( !exitPG )
         wl_display_dispatch(wlDisplay);
     
-    DeletePBO();
+    //DeletePBO();
     if( !pixelDump )
         printf("Pixel Not Dumped\n");
     else
