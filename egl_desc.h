@@ -18,7 +18,6 @@ void LogRenderBufferInternals();
 void LogRenderBufferInternals()
 {
     GLint maxSamples = 0;
-    GLint texSamples = 0;
 
     glGetIntegerv( GL_MAX_SAMPLES_EXT, &maxSamples );
     glCheckError();

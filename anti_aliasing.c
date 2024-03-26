@@ -47,8 +47,12 @@ static const char* frag_shader_text =
 	"}\n";
 
 static uint32_t startTime = 0;
+static uint16_t surfaceWidth = 1920;
+static uint16_t surfaceHeight = 1080;
+static uint32_t numOfMSAAsamples = 16;
 
-static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMGPROC glFramebufferTexture2DMultisampleIMG = NULL;
+static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC glFramebufferTexture2DMultisampleEXT = NULL;
+static PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT = NULL;
 
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
 
@@ -61,6 +65,14 @@ static void surface_configure_callback( void * pData, struct wl_callback* pCallb
 static void InitGLState( struct GlState* pGLState );
 
 static GLuint createShader( const char* source, GLenum shaderType );
+
+static void SetupFBO( 
+	GLuint* fbo,
+	GLuint* colorAttachmentTexture,
+	GLenum texture_format,
+	GLenum pixelStorage,
+	GLuint numOfSamples
+);
 
 struct ClientObjState
 {
@@ -83,6 +95,9 @@ struct ClientObjState
 
         GLuint ibo;
         GLuint texture;
+
+		GLuint msaaFBO;
+		GLuint msaaTexture;
     }mGlState;
 
     struct Uniforms{
@@ -265,9 +280,16 @@ static void surface_configure_callback( void* pData, struct wl_callback* pCallba
 
 static void InitGLState( struct GlState* pGLState )
 {
-	glFramebufferTexture2DMultisampleIMG = (PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMGPROC) eglGetProcAddress( "glFramebufferTexture2DMultisampleIMG" );
+	glFramebufferTexture2DMultisampleEXT = (PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC) eglGetProcAddress( "glFramebufferTexture2DMultisampleEXT" );
 
-	if( !glFramebufferTexture2DMultisampleIMG )
+	if( !glFramebufferTexture2DMultisampleEXT )
+	{
+		printf("Failed to get func pointer to glFramebufferTexture2DMultisampleIMG\n");
+	}
+
+	glDiscardFramebufferEXT = (PFNGLDISCARDFRAMEBUFFEREXTPROC) eglGetProcAddress( "glDiscardFramebufferEXT" );
+
+	if( !glDiscardFramebufferEXT )
 	{
 		printf("Failed to get func pointer to glFramebufferTexture2DMultisampleIMG\n");
 	}
@@ -361,6 +383,46 @@ static GLuint createShader( const char* source, GLenum shaderType )
 	return shader;
 }
 
+static void SetupFBO( 
+	GLuint* fbo,
+	GLuint* colorAttachmentTexture,
+	GLenum texture_format,
+	GLenum pixelStorage,
+	GLuint numOfSamples
+)
+{
+	glGenTextures(1, colorAttachmentTexture);
+	glBindTexture(GL_TEXTURE_2D, *colorAttachmentTexture);
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		texture_format,
+		surfaceWidth, surfaceHeight,
+		0, texture_format,
+		pixelStorage,
+		NULL
+	);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glGenFramebuffers( 1, fbo );
+	glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
+	glFramebufferTexture2DMultisampleEXT(
+		GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+		GL_TEXTURE_2D, *colorAttachmentTexture,
+		0,
+		numOfSamples
+	);
+
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if( status != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf("Failed to Setup FBO errorcode : %d\n", status);
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 static void xdg_surface_configure(
 	void* pData, struct xdg_surface* pXdgSurface, uint32_t serial
 )
@@ -448,13 +510,17 @@ int main( int argc, const char* argv[] )
 
     AssignXDGSurfaceListener( clientObjState.mpXdgSurface, &clientObjState );
 
-	uint16_t surfaceWidth = 1920;
-	uint16_t surfaceHeight = 1080;
 	const char* surfaceTitle = "EGL Client";
 
 	CreateEGLSurface( clientObjState.mpWlSurface, surfaceWidth, surfaceHeight, &clientObjState.mpEglContext );
 	InitGLState( &clientObjState.mGlState );
-
+	SetupFBO(
+		&clientObjState.mGlState.msaaFBO,
+		&clientObjState.mGlState.msaaTexture,
+		GL_RGBA,
+		GL_UNSIGNED_SHORT_4_4_4_4,
+		numOfMSAAsamples
+	);
     clientObjState.mpXdgTopLevel = xdg_surface_get_toplevel( clientObjState.mpXdgSurface );
 	AssignXDGToplevelListener(clientObjState.mpXdgTopLevel, &clientObjState);
     xdg_toplevel_set_title(clientObjState.mpXdgTopLevel, surfaceTitle);
@@ -475,6 +541,12 @@ int main( int argc, const char* argv[] )
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
     glDeleteBuffers( 1, &clientObjState.mGlState.ibo );
+
+	glBindBuffer( GL_FRAMEBUFFER, 0 );
+	glDeleteFramebuffers( 1, &clientObjState.mGlState.msaaFBO );
+
+	glBindTexture( GL_TEXTURE_2D, 0 );
+	glDeleteTextures(1, &clientObjState.mGlState.msaaTexture );
 
 	ShutdownEGLContext( &clientObjState.mpEglContext, clientObjState.mpXdgTopLevel, clientObjState.mpXdgSurface, clientObjState.mpWlSurface );
     wl_display_disconnect(pDisplay);
