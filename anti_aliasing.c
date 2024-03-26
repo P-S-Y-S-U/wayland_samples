@@ -1,3 +1,8 @@
+#define RENDERING_API EGL_OPENGL_ES2_BIT
+#define ENABLE_MSAA
+#define MSAA_SAMPLES 4
+
+#define IMAGE_FILE_PATH "./Text_Sample.png"
 
 #include "egl_common.h"
 #include "client_common.h"
@@ -143,9 +148,9 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 	float blue = ( ( rand() % ( 255 - 1 + 1 ) ) + 1 ) / 255.0;
 	float alpha = ( ( rand() % ( 255 - 0 + 1 ) ) + 0 ) / 255.0;	
 #else
-	float red = 0.0;
+	float red = 0.25;
 	float green = 0.0;
-	float blue = 0.0;
+	float blue = 0.65;
 	float alpha = 1.0;
 #endif
     
@@ -165,7 +170,7 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 	glClearColor(red, green, blue, alpha);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-    static const float vertex_scale = 1.0;
+    static const float vertex_scale = 0.95;
     static const float uv_scale = 1.0;
 
     static const float vertex_positions[4][2] = {
@@ -176,10 +181,10 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
     };
 
     static const float vertex_texcoords[4][2] = {
-        uv_scale, 0.0,
-	    uv_scale, uv_scale,
-	    0.0, uv_scale,
-	    0.0, 0.0
+        0.0, uv_scale,
+	    0.0, 0.0,
+	    uv_scale, 0.0,
+	    uv_scale, uv_scale
     };
 
     static const float vertex_colors[4][3] = {
@@ -296,8 +301,10 @@ static void InitGLState( struct GlState* pGLState )
 
     int texWidth, texHeight, channels;
 
+    stbi_set_flip_vertically_on_load(1);
+
     uint8_t* imgData = stbi_load(
-        "./texture.jpg", &texWidth, &texHeight, &channels, STBI_rgb_alpha
+        IMAGE_FILE_PATH, &texWidth, &texHeight, &channels, STBI_rgb_alpha
     );
 
     glGenTextures( 1, &pGLState->texture );
@@ -431,8 +438,8 @@ int main( int argc, const char* argv[] )
 
     AssignXDGSurfaceListener( clientObjState.mpXdgSurface, &clientObjState );
 
-	uint16_t surfaceWidth = 1280;
-	uint16_t surfaceHeight = 720;
+	uint16_t surfaceWidth = 1920;
+	uint16_t surfaceHeight = 1080;
 	const char* surfaceTitle = "EGL Client";
 
 	CreateEGLSurface( clientObjState.mpWlSurface, surfaceWidth, surfaceHeight, &clientObjState.mpEglContext );
