@@ -11,6 +11,7 @@
 #include "TexReader.h"
 
 #include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
@@ -46,6 +47,8 @@ static const char* frag_shader_text =
 	"}\n";
 
 static uint32_t startTime = 0;
+
+static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMGPROC glFramebufferTexture2DMultisampleIMG = NULL;
 
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
 
@@ -262,6 +265,13 @@ static void surface_configure_callback( void* pData, struct wl_callback* pCallba
 
 static void InitGLState( struct GlState* pGLState )
 {
+	glFramebufferTexture2DMultisampleIMG = (PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEIMGPROC) eglGetProcAddress( "glFramebufferTexture2DMultisampleIMG" );
+
+	if( !glFramebufferTexture2DMultisampleIMG )
+	{
+		printf("Failed to get func pointer to glFramebufferTexture2DMultisampleIMG\n");
+	}
+
 	GLuint frag, vert;
 	GLuint program;
 	GLint status;
