@@ -1,11 +1,30 @@
 #ifndef EGL_DESC_H
 #define EGL_DESC_H
 
+#include <EGL/egl.h>
+
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+
+#include "gl_error.h"
+
 void LogEGLConfig(
     EGLDisplay eglDisplay,
     EGLConfig eglConfig
 );
 
+void LogRenderBufferInternals();
+
+void LogRenderBufferInternals()
+{
+    GLint maxSamples = 0;
+    GLint texSamples = 0;
+
+    glGetIntegerv( GL_MAX_SAMPLES_EXT, &maxSamples );
+    glCheckError();
+
+    printf("Max number of Samples : %d\n", maxSamples);
+}
 
 const char* GetEGLReturnString(
     EGLint attrib

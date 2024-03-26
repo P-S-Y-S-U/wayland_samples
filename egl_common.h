@@ -143,6 +143,7 @@ void CreateEGLSurface(
     {
         printf( "Failed to Make Current Context\n" );
     }
+    LogRenderBufferInternals();
 }
 
 void ShutdownEGLContext( 
