@@ -16,6 +16,7 @@
 #include <time.h>
 #include <math.h>
 
+#include <cglm/cglm.h>
 #include <cglm/mat4.h>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -35,6 +36,8 @@ static uint32_t numOfMSAAsamples = MSAA_SAMPLES;
 
 static struct Mesh* pTriangleMesh = NULL;
 static struct Mesh* pQuadMesh = NULL;
+
+static clock_t simulation_start;
 
 static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC glFramebufferTexture2DMultisampleEXT = NULL;
 static PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT = NULL;
@@ -101,6 +104,7 @@ struct ClientObjState
 
     struct Uniforms{
         mat4 mvp;
+		mat4 quadIdentityModelViewProj;
     }mUniforms;
 };
 
@@ -149,7 +153,51 @@ static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallbac
 
 static void UpdateUniforms( struct ClientObjState* pClientObj )
 {
-    glm_mat4_identity( pClientObj->mUniforms.mvp );
+	mat4 model, view, projection;
+
+	glm_mat4_identity(model);
+	glm_mat4_identity(view);
+	glm_mat4_identity(projection);
+	glm_mat4_identity( pClientObj->mUniforms.mvp );
+	glm_mat4_identity( pClientObj->mUniforms.quadIdentityModelViewProj );
+
+	float degree = 90.0f;
+	float fovy = 45.0f;
+
+	//glm_make_rad(&degree);
+	glm_make_rad(&fovy);
+
+	clock_t duration = clock() - simulation_start;
+	float duration_in_secs = ( (float) duration ) / CLOCKS_PER_SEC;
+
+	float rotation_axis[] = { 0.0, 1.0, 0.0 };
+	glm_rotate(
+		model,
+		duration_in_secs * degree,
+		rotation_axis
+	);
+
+	float view_eye[] = { 0.0, 0.0, 3.0 };
+	float view_center[] = { 0.0, 0.0, 0.0 };
+	float view_up[] = { 0.0, 1.0, 0.0 };
+
+	glm_lookat(
+		view_eye,
+		view_center,
+		view_up,
+		view
+	);
+
+	glm_perspective(
+		fovy,
+		(float) surfaceWidth / (float) surfaceHeight,
+		0.1,
+		10.0,
+		projection
+	);
+
+	glm_mat4_mul( projection, view, pClientObj->mUniforms.mvp );
+	glm_mat4_mul( pClientObj->mUniforms.mvp, model, pClientObj->mUniforms.mvp );
 }
 
 static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
@@ -197,6 +245,7 @@ static void drawTriangle(
 	glViewport(0, 0, pEglContext->mWindowWidth, pEglContext->mWindowHeight );
 	glClearColor( 0.1, 0.1, 0.4, 1.0 );
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	glDisable(GL_CULL_FACE);
 
 	glUseProgram(pGfxPipeline->gpuprogram);
 
@@ -263,7 +312,7 @@ static void drawQuad(
 
 	glUniformMatrix4fv(
         pGfxPipeline->mvp_unifrom, 1, GL_FALSE,
-        (GLfloat*) pClientObj->mUniforms.mvp
+        (GLfloat*) pClientObj->mUniforms.quadIdentityModelViewProj 
     );
     glUniform1i( pGfxPipeline->texSampler_uniform, 0 );
 
@@ -580,6 +629,8 @@ int main( int argc, const char* argv[] )
 	wl_callback_add_listener( configureCallback, &configure_listener, &clientObjState );
 
 	clientObjState.mbCloseApplication = 0;
+
+	simulation_start = clock();
 
     while( clientObjState.mbCloseApplication != 1 )
     {
