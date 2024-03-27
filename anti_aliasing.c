@@ -51,6 +51,49 @@ static uint16_t surfaceWidth = 1920;
 static uint16_t surfaceHeight = 1080;
 static uint32_t numOfMSAAsamples = 16;
 
+static const float vertex_scale = 0.95;
+static const float uv_scale = 1.0;
+
+static const float vertex_positions[4][2] = {
+    -vertex_scale, vertex_scale,
+    -vertex_scale, -vertex_scale,
+    vertex_scale, -vertex_scale,
+    vertex_scale, vertex_scale
+};
+
+static const float vertex_texcoords[4][2] = {
+    0.0, uv_scale,
+    0.0, 0.0,
+    uv_scale, 0.0,
+    uv_scale, uv_scale
+};
+
+static const float vertex_colors[4][3] = {
+	1.0, 1.0, 0.0,
+	0.0, 1.0, 0.0,
+	0.0, 0.5, 1.0,
+    1.0, 0.0, 1.0,
+};
+
+static const uint16_t indices[6] = {
+    0, 1, 2,
+    0, 2, 3
+};
+
+static const float quad_positions[4][2] = {
+	-1.0, 1.0,
+    -1.0, -1.0,
+    1.0, -1.0,
+    1.0, 1.0
+};
+
+static const float quad_texcoords[4][2] = {
+    0.0, 1.0,
+    0.0, 0.0,
+    1.0, 0.0,
+    1.0, 1.0
+};
+
 static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC glFramebufferTexture2DMultisampleEXT = NULL;
 static PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT = NULL;
 
@@ -59,7 +102,13 @@ static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
 static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallback, uint32_t time );
 static void UpdateUniforms( struct ClientObjState* pClientObj );
 static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time );
-
+static void drawShape( 
+	struct ClientObjState* pClientObj, uint32_t time,
+	float clear_r, float clear_g, float clear_b, float clear_a,
+	const void* position, const void* texcoords, const void* colors,
+	const void* indices,
+	GLuint textureToUse
+);
 static void surface_configure_callback( void * pData, struct wl_callback* pCallback, uint32_t time );
 
 static void InitGLState( struct GlState* pGLState );
@@ -154,105 +203,104 @@ static void UpdateUniforms( struct ClientObjState* pClientObj )
 }
 
 static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
-{
-#if 0
-	if( startTime == 0 )
-		startTime = time;
-
-	srand( time - startTime );
-
-	float red = ( ( rand() % ( 255 - 1 + 1 ) ) + 1 ) / 255.0;
-	float green = ( ( rand() % ( 255 - 1 + 1 ) ) + 1 ) / 255.0;
-	float blue = ( ( rand() % ( 255 - 1 + 1 ) ) + 1 ) / 255.0;
-	float alpha = ( ( rand() % ( 255 - 0 + 1 ) ) + 0 ) / 255.0;	
-#else
-	float red = 0.25;
-	float green = 0.0;
-	float blue = 0.65;
-	float alpha = 1.0;
-#endif
-    
+{    
     struct eglContext* pEglContext = &pClientObj->mpEglContext;
     struct GlState* pGlState = &pClientObj->mGlState;
 
+    glBindFramebuffer(GL_FRAMEBUFFER, pClientObj->mGlState.msaaFBO);
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	glViewport(0, 0, pEglContext->mWindowWidth, pEglContext->mWindowHeight );
-    glUniformMatrix4fv(
+	if( status != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
+	}
+	drawShape( 
+		pClientObj, time,
+		0.0, 0.2, 0.4, 1.0,
+		vertex_positions, vertex_texcoords, vertex_colors,
+		indices,
+		pClientObj->mGlState.texture
+	);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if( status != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
+	}
+	drawShape( 
+		pClientObj, time,
+		0.0, 0.0, 0.0, 1.0,
+		quad_positions, quad_texcoords, NULL,
+		indices,
+		pClientObj->mGlState.msaaTexture
+	);
+}
+
+static void drawShape( 
+	struct ClientObjState* pClientObj, uint32_t time,
+	float clear_r, float clear_g, float clear_b, float clear_a,
+	const void* position, const void* texcoords, const void* colors,
+	const void* indices,
+	GLuint textureToUse
+)
+{
+	struct eglContext* pEglContext = &pClientObj->mpEglContext;
+    struct GlState* pGlState = &pClientObj->mGlState;
+
+	glClearColor(clear_r, clear_g, clear_b, clear_a);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+	glUniformMatrix4fv(
         pGlState->mvp_unifrom, 1, GL_FALSE,
         (GLfloat*) pClientObj->mUniforms.mvp
     );
     glUniform1i( pClientObj->mGlState.texSampler_uniform, 0 );
-    glCheckError();
-    
-    glCheckError();
-
-	glClearColor(red, green, blue, alpha);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-    static const float vertex_scale = 0.95;
-    static const float uv_scale = 1.0;
-
-    static const float vertex_positions[4][2] = {
-        -vertex_scale, vertex_scale,
-	    -vertex_scale, -vertex_scale,
-	    vertex_scale, -vertex_scale,
-	    vertex_scale, vertex_scale
-    };
-
-    static const float vertex_texcoords[4][2] = {
-        0.0, uv_scale,
-	    0.0, 0.0,
-	    uv_scale, 0.0,
-	    uv_scale, uv_scale
-    };
-
-    static const float vertex_colors[4][3] = {
-    	1.0, 1.0, 0.0,
-    	0.0, 1.0, 0.0,
-    	0.0, 0.5, 1.0,
-        1.0, 0.0, 1.0,
-    };
-
-    static const uint16_t indices[6] = {
-        0, 1, 2,
-        0, 2, 3
-    };
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, pGlState->texSampler_uniform);
+    glBindTexture(GL_TEXTURE_2D, textureToUse);
 
     glVertexAttribPointer(
         pGlState->position_attribute,
         2, GL_FLOAT, GL_FALSE,
         0,
-        vertex_positions
+        position
     );
-    glVertexAttribPointer(
-        pGlState->texcoord_attribute,
-        2, GL_FLOAT, GL_FALSE,
-        0,
-        vertex_texcoords
-    );
-    glVertexAttribPointer(
-        pGlState->color_attribute,
-        3, GL_FLOAT, GL_FALSE,
-        0,
-        vertex_colors
-    );
-    glEnableVertexAttribArray(pGlState->position_attribute);
-    glEnableVertexAttribArray(pGlState->texcoord_attribute);
-    glEnableVertexAttribArray(pGlState->color_attribute);
+	glEnableVertexAttribArray(pGlState->position_attribute);
+	if( texcoords )
+	{
+    	glVertexAttribPointer(
+    	    pGlState->texcoord_attribute,
+    	    2, GL_FLOAT, GL_FALSE,
+    	    0,
+    	    texcoords
+    	);
+		glEnableVertexAttribArray(pGlState->texcoord_attribute);
+	}
+	if( colors )
+	{
+    	glVertexAttribPointer(
+    	    pGlState->color_attribute,
+    	    3, GL_FLOAT, GL_FALSE,
+    	    0,
+    	    colors
+    	);
+		glEnableVertexAttribArray(pGlState->color_attribute);
+	}
 
-    glBindBuffer(
-        GL_ELEMENT_ARRAY_BUFFER, pGlState->ibo
-    );
-    glBufferData(
-        GL_ELEMENT_ARRAY_BUFFER,
-        6 * sizeof(uint16_t),
-        indices,
-        GL_STATIC_DRAW
-    );
+	if( indices )
+	{
+    	glBindBuffer(
+    	    GL_ELEMENT_ARRAY_BUFFER, pGlState->ibo
+    	);
+    	glBufferData(
+    	    GL_ELEMENT_ARRAY_BUFFER,
+    	    6 * sizeof(uint16_t),
+    	    indices,
+    	    GL_STATIC_DRAW
+    	);
+	}
 
-	// glDrawArrays( GL_TRIANGLES, 0, 3 );
     glDrawElements(
         GL_TRIANGLES, 6,
         GL_UNSIGNED_SHORT,
@@ -260,10 +308,13 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
     );
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
+	//glBindTexture(GL_TEXTURE_2D, 0);
 
     glDisableVertexAttribArray(pGlState->position_attribute);
-    glDisableVertexAttribArray(pGlState->texcoord_attribute);
-    glDisableVertexAttribArray(pGlState->color_attribute);
+	if(texcoords)
+    	glDisableVertexAttribArray(pGlState->texcoord_attribute);
+	if(colors)
+    	glDisableVertexAttribArray(pGlState->color_attribute);
 }
 
 static void surface_configure_callback( void* pData, struct wl_callback* pCallback, uint32_t time )
