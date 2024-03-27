@@ -1,6 +1,6 @@
 #define RENDERING_API EGL_OPENGL_ES2_BIT
-//#define ENABLE_MSAA
-#define MSAA_SAMPLES 4
+#define MSAA_SAMPLES 16
+#define ENABLE_MSAA
 
 #define IMAGE_FILE_PATH "./Text_Sample.png"
 
@@ -21,78 +21,20 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
+#include "shaders.h"
+#include "mesh.h"
+
 struct ClientObjState;
 struct GlState;
-
-static const char* vertex_shader_text = 
-    "uniform mat4 mvp;\n"
-    "attribute vec4 pos;\n"
-    "attribute vec2 texcoord;\n"
-    "attribute vec4 color;\n"
-    "varying vec2 out_texcoord;\n"
-	"varying vec4 vertex_color;\n"
-	"void main() {\n"
-	" gl_Position = mvp * pos;\n"
-    " out_texcoord = texcoord;\n"
-	" vertex_color = color;\n"
-	"}\n";
-
-static const char* frag_shader_text = 
-	"precision highp float;\n"
-    "varying vec2 out_texcoord;\n"
-	"varying vec4 vertex_color;\n"
-    "uniform sampler2D texSampler;\n"
-	"void main() {\n"
-	"  gl_FragColor = texture2D(texSampler, out_texcoord);\n"
-	"}\n";
+struct GfxPipeline;
 
 static uint32_t startTime = 0;
 static uint16_t surfaceWidth = 1920;
 static uint16_t surfaceHeight = 1080;
-static uint32_t numOfMSAAsamples = 16;
+static uint32_t numOfMSAAsamples = MSAA_SAMPLES;
 
-static const float vertex_scale = 0.95;
-static const float uv_scale = 1.0;
-
-static const float vertex_positions[4][2] = {
-    -vertex_scale, vertex_scale,
-    -vertex_scale, -vertex_scale,
-    vertex_scale, -vertex_scale,
-    vertex_scale, vertex_scale
-};
-
-static const float vertex_texcoords[4][2] = {
-    0.0, uv_scale,
-    0.0, 0.0,
-    uv_scale, 0.0,
-    uv_scale, uv_scale
-};
-
-static const float vertex_colors[4][3] = {
-	1.0, 1.0, 0.0,
-	0.0, 1.0, 0.0,
-	0.0, 0.5, 1.0,
-    1.0, 0.0, 1.0,
-};
-
-static const uint16_t indices[6] = {
-    0, 1, 2,
-    0, 2, 3
-};
-
-static const float quad_positions[4][2] = {
-	-1.0, 1.0,
-    -1.0, -1.0,
-    1.0, -1.0,
-    1.0, 1.0
-};
-
-static const float quad_texcoords[4][2] = {
-    0.0, 1.0,
-    0.0, 0.0,
-    1.0, 0.0,
-    1.0, 1.0
-};
+static struct Mesh* pTriangleMesh = NULL;
+static struct Mesh* pQuadMesh = NULL;
 
 static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC glFramebufferTexture2DMultisampleEXT = NULL;
 static PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT = NULL;
@@ -102,7 +44,11 @@ static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
 static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallback, uint32_t time );
 static void UpdateUniforms( struct ClientObjState* pClientObj );
 static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time );
-static void drawShape( 
+static void drawTriangle(
+	struct ClientObjState* pClientObj, uint32_t time,
+	const void* position, const void* texcoords, const void* colors
+);
+static void drawQuad( 
 	struct ClientObjState* pClientObj, uint32_t time,
 	float clear_r, float clear_g, float clear_b, float clear_a,
 	const void* position, const void* texcoords, const void* colors,
@@ -113,8 +59,6 @@ static void surface_configure_callback( void * pData, struct wl_callback* pCallb
 
 static void InitGLState( struct GlState* pGLState );
 
-static GLuint createShader( const char* source, GLenum shaderType );
-
 static void SetupFBO( 
 	GLuint* fbo,
 	GLuint* colorAttachmentTexture,
@@ -122,6 +66,15 @@ static void SetupFBO(
 	GLenum pixelStorage,
 	GLuint numOfSamples
 );
+
+struct GfxPipeline{
+	GLuint gpuprogram;
+	GLuint mvp_unifrom;
+	GLuint texSampler_uniform;
+	GLuint position_attribute;
+	GLuint texcoord_attribute;
+	GLuint color_attribute;
+};
 
 struct ClientObjState
 {
@@ -136,17 +89,14 @@ struct ClientObjState
 	int8_t mbSurfaceConfigured;
 
     struct GlState{
-        GLuint mvp_unifrom;
-        GLuint texSampler_uniform;
-        GLuint position_attribute;
-        GLuint texcoord_attribute;
-        GLuint color_attribute;
-
         GLuint ibo;
         GLuint texture;
 
 		GLuint msaaFBO;
 		GLuint msaaTexture;
+		
+		struct GfxPipeline vertexcolorPipeline;
+		struct GfxPipeline renderToQuadPipeline;
     }mGlState;
 
     struct Uniforms{
@@ -209,17 +159,15 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 
     glBindFramebuffer(GL_FRAMEBUFFER, pClientObj->mGlState.msaaFBO);
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	glViewport(0, 0, pEglContext->mWindowWidth, pEglContext->mWindowHeight );
+	
 	if( status != GL_FRAMEBUFFER_COMPLETE )
 	{
 		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
 	}
-	drawShape( 
+
+	drawTriangle( 
 		pClientObj, time,
-		0.0, 0.2, 0.4, 1.0,
-		vertex_positions, vertex_texcoords, vertex_colors,
-		indices,
-		pClientObj->mGlState.texture
+		pTriangleMesh->vertex_positions, pTriangleMesh->vertex_texcoords, pTriangleMesh->vertex_colors
 	);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -228,16 +176,73 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 	{
 		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
 	}
-	drawShape( 
+	drawQuad( 
 		pClientObj, time,
 		0.0, 0.0, 0.0, 1.0,
-		quad_positions, quad_texcoords, NULL,
-		indices,
+		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
+		pQuadMesh->indices,
 		pClientObj->mGlState.msaaTexture
 	);
 }
 
-static void drawShape( 
+static void drawTriangle(
+	struct ClientObjState* pClientObj, uint32_t time,
+	const void* position, const void* texcoords, const void* colors
+)
+{
+	struct eglContext* pEglContext = &pClientObj->mpEglContext;
+    struct GlState* pGlState = &pClientObj->mGlState;
+	struct GfxPipeline* pGfxPipeline = &pClientObj->mGlState.vertexcolorPipeline;
+
+	glViewport(0, 0, pEglContext->mWindowWidth, pEglContext->mWindowHeight );
+	glClearColor( 0.1, 0.1, 0.4, 1.0 );
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+	glUseProgram(pGfxPipeline->gpuprogram);
+
+	glUniformMatrix4fv(
+        pGfxPipeline->mvp_unifrom, 1, GL_FALSE,
+        (GLfloat*) pClientObj->mUniforms.mvp
+    );
+
+    glVertexAttribPointer(
+        pGfxPipeline->position_attribute,
+        3, GL_FLOAT, GL_FALSE,
+        0,
+        position
+    );
+	glEnableVertexAttribArray(pGfxPipeline->position_attribute);
+	if( texcoords )
+	{
+    	glVertexAttribPointer(
+    	    pGfxPipeline->texcoord_attribute,
+    	    2, GL_FLOAT, GL_FALSE,
+    	    0,
+    	    texcoords
+    	);
+		glEnableVertexAttribArray(pGfxPipeline->texcoord_attribute);
+	}
+	if( colors )
+	{
+    	glVertexAttribPointer(
+    	    pGfxPipeline->color_attribute,
+    	    3, GL_FLOAT, GL_FALSE,
+    	    0,
+    	    colors
+    	);
+		glEnableVertexAttribArray(pGfxPipeline->color_attribute);
+	}
+
+	glDrawArrays( GL_TRIANGLES, 0, 3 );
+
+    glDisableVertexAttribArray(pGfxPipeline->position_attribute);
+	if(texcoords)
+    	glDisableVertexAttribArray(pGfxPipeline->texcoord_attribute);
+	if(colors)
+    	glDisableVertexAttribArray(pGfxPipeline->color_attribute);
+}
+
+static void drawQuad( 
 	struct ClientObjState* pClientObj, uint32_t time,
 	float clear_r, float clear_g, float clear_b, float clear_a,
 	const void* position, const void* texcoords, const void* colors,
@@ -247,45 +252,50 @@ static void drawShape(
 {
 	struct eglContext* pEglContext = &pClientObj->mpEglContext;
     struct GlState* pGlState = &pClientObj->mGlState;
+	struct GfxPipeline* pGfxPipeline = &pClientObj->mGlState.renderToQuadPipeline;
+
+	glViewport(0, 0, pEglContext->mWindowWidth, pEglContext->mWindowHeight );
 
 	glClearColor(clear_r, clear_g, clear_b, clear_a);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+	glUseProgram(pGfxPipeline->gpuprogram);
+
 	glUniformMatrix4fv(
-        pGlState->mvp_unifrom, 1, GL_FALSE,
+        pGfxPipeline->mvp_unifrom, 1, GL_FALSE,
         (GLfloat*) pClientObj->mUniforms.mvp
     );
-    glUniform1i( pClientObj->mGlState.texSampler_uniform, 0 );
+    glUniform1i( pGfxPipeline->texSampler_uniform, 0 );
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureToUse);
 
     glVertexAttribPointer(
-        pGlState->position_attribute,
+        pGfxPipeline->position_attribute,
         2, GL_FLOAT, GL_FALSE,
         0,
         position
     );
-	glEnableVertexAttribArray(pGlState->position_attribute);
+	glEnableVertexAttribArray(pGfxPipeline->position_attribute);
 	if( texcoords )
 	{
     	glVertexAttribPointer(
-    	    pGlState->texcoord_attribute,
+    	    pGfxPipeline->texcoord_attribute,
     	    2, GL_FLOAT, GL_FALSE,
     	    0,
     	    texcoords
     	);
-		glEnableVertexAttribArray(pGlState->texcoord_attribute);
+		glEnableVertexAttribArray(pGfxPipeline->texcoord_attribute);
 	}
 	if( colors )
 	{
     	glVertexAttribPointer(
-    	    pGlState->color_attribute,
+    	    pGfxPipeline->color_attribute,
     	    3, GL_FLOAT, GL_FALSE,
     	    0,
     	    colors
     	);
-		glEnableVertexAttribArray(pGlState->color_attribute);
+		glEnableVertexAttribArray(pGfxPipeline->color_attribute);
 	}
 
 	if( indices )
@@ -310,11 +320,11 @@ static void drawShape(
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
 	//glBindTexture(GL_TEXTURE_2D, 0);
 
-    glDisableVertexAttribArray(pGlState->position_attribute);
+    glDisableVertexAttribArray(pGfxPipeline->position_attribute);
 	if(texcoords)
-    	glDisableVertexAttribArray(pGlState->texcoord_attribute);
+    	glDisableVertexAttribArray(pGfxPipeline->texcoord_attribute);
 	if(colors)
-    	glDisableVertexAttribArray(pGlState->color_attribute);
+    	glDisableVertexAttribArray(pGfxPipeline->color_attribute);
 }
 
 static void surface_configure_callback( void* pData, struct wl_callback* pCallback, uint32_t time )
@@ -345,40 +355,45 @@ static void InitGLState( struct GlState* pGLState )
 		printf("Failed to get func pointer to glFramebufferTexture2DMultisampleIMG\n");
 	}
 
-	GLuint frag, vert;
-	GLuint program;
-	GLint status;
+	pGLState->vertexcolorPipeline.gpuprogram = createGPUProgram(
+		vertex_color_vertex_shader_text, vertex_color_frag_shader_text
+	);
+    pGLState->vertexcolorPipeline.position_attribute = 0;
+	pGLState->vertexcolorPipeline.texcoord_attribute = 1;
+    pGLState->vertexcolorPipeline.color_attribute = 2;
+    glBindAttribLocation(
+		pGLState->vertexcolorPipeline.gpuprogram, 
+		pGLState->vertexcolorPipeline.position_attribute,
+		"pos"
+	);
+    glBindAttribLocation(
+		pGLState->vertexcolorPipeline.gpuprogram, 
+		pGLState->vertexcolorPipeline.color_attribute,
+		"color"
+	);
+    glLinkProgram(pGLState->vertexcolorPipeline.gpuprogram);
+    pGLState->vertexcolorPipeline.mvp_unifrom = glGetUniformLocation( pGLState->vertexcolorPipeline.gpuprogram, "mvp");
 
-	frag = createShader( frag_shader_text, GL_FRAGMENT_SHADER);
-	vert = createShader( vertex_shader_text, GL_VERTEX_SHADER);
+	pGLState->renderToQuadPipeline.gpuprogram = createGPUProgram(
+		sample_texture_vertex_shader_text, sample_texture_frag_shader_text
+	);
+    pGLState->renderToQuadPipeline.position_attribute = 0;
+	pGLState->renderToQuadPipeline.texcoord_attribute = 1;
+    pGLState->renderToQuadPipeline.color_attribute = 2;
+    glBindAttribLocation(
+		pGLState->renderToQuadPipeline.gpuprogram, 
+		pGLState->renderToQuadPipeline.position_attribute,
+		"pos"
+	);
+    glBindAttribLocation(
+		pGLState->renderToQuadPipeline.gpuprogram, 
+		pGLState->renderToQuadPipeline.texcoord_attribute,
+		"texcoord"
+	);
+    glLinkProgram(pGLState->renderToQuadPipeline.gpuprogram);
+    pGLState->renderToQuadPipeline.mvp_unifrom = glGetUniformLocation( pGLState->renderToQuadPipeline.gpuprogram, "mvp");
+	pGLState->renderToQuadPipeline.texSampler_uniform = glGetUniformLocation( pGLState->renderToQuadPipeline.gpuprogram, "texSampler");
 
-	program = glCreateProgram();
-	glAttachShader(program, frag);
-	glAttachShader(program, vert);
-	glLinkProgram(program);
-
-	glGetProgramiv(program, GL_LINK_STATUS, &status);
-	if (!status) {
-		char log[1000];
-		GLsizei len;
-		glGetProgramInfoLog(program, 1000, &len, log);
-		fprintf(stderr, "Error: linking:\n%*s\n", len, log);
-		exit(1);
-	}
-
-	glUseProgram(program);
-
-    pGLState->position_attribute = 0;
-    pGLState->texcoord_attribute = 1;
-    pGLState->color_attribute = 2;
-
-    glBindAttribLocation(program, pGLState->position_attribute, "pos");
-    glBindAttribLocation(program, pGLState->texcoord_attribute, "tex");
-    glBindAttribLocation(program, pGLState->color_attribute, "color");
-    glLinkProgram(program);
-
-    pGLState->mvp_unifrom = glGetUniformLocation( program, "mvp");
-    pGLState->texSampler_uniform = glGetUniformLocation( program, "texSampler" );
 
     glGenBuffers( 1, &pGLState->ibo );
 
@@ -408,30 +423,6 @@ static void InitGLState( struct GlState* pGLState )
     glCheckError();
 
     stbi_image_free(imgData);
-}
-
-static GLuint createShader( const char* source, GLenum shaderType )
-{
-	GLuint shader;
-	GLint status;
-
-	shader = glCreateShader(shaderType);
-
-	glShaderSource(shader, 1, (const char **) &source, NULL);
-	glCompileShader(shader);
-
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-	if (!status) {
-		char log[1000];
-		GLsizei len;
-		glGetShaderInfoLog(shader, 1000, &len, log);
-		fprintf(stderr, "Error: compiling %s: %*s\n",
-			shaderType == GL_VERTEX_SHADER ? "vertex" : "fragment",
-			len, log);
-		exit(1);
-	}
-
-	return shader;
 }
 
 static void SetupFBO( 
@@ -572,6 +563,11 @@ int main( int argc, const char* argv[] )
 		GL_UNSIGNED_SHORT_4_4_4_4,
 		numOfMSAAsamples
 	);
+	pTriangleMesh = malloc(sizeof(struct Mesh));
+	pQuadMesh = malloc(sizeof(struct Mesh));
+	GetTriangleMesh(pTriangleMesh);
+	GetQuadMesh(pQuadMesh);
+
     clientObjState.mpXdgTopLevel = xdg_surface_get_toplevel( clientObjState.mpXdgSurface );
 	AssignXDGToplevelListener(clientObjState.mpXdgTopLevel, &clientObjState);
     xdg_toplevel_set_title(clientObjState.mpXdgTopLevel, surfaceTitle);
