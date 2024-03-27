@@ -1,6 +1,6 @@
 #define RENDERING_API EGL_OPENGL_ES2_BIT
 #define MSAA_SAMPLES 16
-#define ENABLE_MSAA
+//#define ENABLE_MSAA
 
 #define IMAGE_FILE_PATH "./Text_Sample.png"
 
@@ -41,6 +41,7 @@ static clock_t simulation_start;
 
 static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC glFramebufferTexture2DMultisampleEXT = NULL;
 static PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT = NULL;
+static PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV = NULL;
 
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
 
@@ -218,7 +219,18 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		pTriangleMesh->vertex_positions, pTriangleMesh->vertex_texcoords, pTriangleMesh->vertex_colors
 	);
 
+#if 0
+	glBindFramebuffer(GL_READ_FRAMEBUFFER_NV, pClientObj->mGlState.msaaFBO);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER_NV, 0);
+	glBlitFramebufferNV( 
+		0, 0, surfaceWidth, surfaceHeight,
+		0, 0, surfaceWidth, surfaceHeight,
+		GL_COLOR_BUFFER_BIT,
+		GL_NEAREST
+	);
+#else
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#endif
 	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if( status != GL_FRAMEBUFFER_COMPLETE )
 	{
@@ -402,6 +414,13 @@ static void InitGLState( struct GlState* pGLState )
 	if( !glDiscardFramebufferEXT )
 	{
 		printf("Failed to get func pointer to glFramebufferTexture2DMultisampleIMG\n");
+	}
+
+	glBlitFramebufferNV = (PFNGLBLITFRAMEBUFFERNVPROC) eglGetProcAddress( "glBlitFramebufferNV" );
+
+	if( !glBlitFramebufferNV )
+	{
+		printf("Failed to get func pointer to glBlitFramebufferNV\n");
 	}
 
 	pGLState->vertexcolorPipeline.gpuprogram = createGPUProgram(
