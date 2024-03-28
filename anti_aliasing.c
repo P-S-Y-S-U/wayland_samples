@@ -1,6 +1,6 @@
 #define RENDERING_API EGL_OPENGL_ES2_BIT
 #define MSAA_SAMPLES 16
-//#define ENABLE_MSAA
+#define ENABLE_MSAA
 
 #define IMAGE_FILE_PATH "./Text_Sample.png"
 
@@ -39,8 +39,13 @@ static struct Mesh* pQuadMesh = NULL;
 
 static clock_t simulation_start;
 
+static PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC glRenderBufferStorageMultisampleEXT = NULL;
+static PFNGLRENDERBUFFERSTORAGEMULTISAMPLENVPROC glRenderBufferStorageMultisampleNV = NULL;
+
 static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC glFramebufferTexture2DMultisampleEXT = NULL;
 static PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT = NULL;
+
+static PFNGLBLITFRAMEBUFFERANGLEPROC glBlitFramebufferANGLE = NULL;
 static PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV = NULL;
 
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
@@ -63,7 +68,9 @@ static void surface_configure_callback( void * pData, struct wl_callback* pCallb
 
 static void InitGLState( struct GlState* pGLState );
 
-static void SetupFBO( 
+static void SetupFBO(
+	GLuint* rb,
+	GLuint* rbDepth,
 	GLuint* fbo,
 	GLuint* colorAttachmentTexture,
 	GLenum texture_format,
@@ -96,6 +103,8 @@ struct ClientObjState
         GLuint ibo;
         GLuint texture;
 
+		GLuint msaaRB;
+		GLuint msaaDepth;
 		GLuint msaaFBO;
 		GLuint msaaTexture;
 		
@@ -219,30 +228,39 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		pTriangleMesh->vertex_positions, pTriangleMesh->vertex_texcoords, pTriangleMesh->vertex_colors
 	);
 
-#if 0
-	glBindFramebuffer(GL_READ_FRAMEBUFFER_NV, pClientObj->mGlState.msaaFBO);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER_NV, 0);
+#if 1
+	glBindFramebuffer(GL_READ_BUFFER_EXT, pClientObj->mGlState.msaaFBO);
+	glCheckError();
+	glBindFramebuffer(GL_DRAW_BUFFER_EXT, 0);
+	glCheckError();
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if( status != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
+	}
+	glViewport(0, 0, pEglContext->mWindowWidth, pEglContext->mWindowHeight );
+	glClearColor( 0.0, 0.0, 0.0, 1.0 );
+	glClear( GL_COLOR_BUFFER_BIT );
 	glBlitFramebufferNV( 
 		0, 0, surfaceWidth, surfaceHeight,
 		0, 0, surfaceWidth, surfaceHeight,
 		GL_COLOR_BUFFER_BIT,
 		GL_NEAREST
 	);
+	glCheckError();
 #else
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 #endif
-	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if( status != GL_FRAMEBUFFER_COMPLETE )
-	{
-		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
-	}
-	drawQuad( 
-		pClientObj, time,
-		0.0, 0.0, 0.0, 1.0,
-		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
-		pQuadMesh->indices,
-		pClientObj->mGlState.msaaTexture
-	);
+	
+
+	
+	//drawQuad( 
+	//	pClientObj, time,
+	//	0.0, 0.0, 0.0, 1.0,
+	//	pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
+	//	pQuadMesh->indices,
+	//	pClientObj->mGlState.msaaTexture
+	//);
 }
 
 static void drawTriangle(
@@ -402,18 +420,39 @@ static void surface_configure_callback( void* pData, struct wl_callback* pCallba
 
 static void InitGLState( struct GlState* pGLState )
 {
+	glRenderBufferStorageMultisampleNV = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLENVPROC) eglGetProcAddress( "glRenderBufferStorageMultisampleNV" );
+	
+	if( !glRenderBufferStorageMultisampleNV )
+	{
+		printf("Failed to get func pointer to glRenderBufferStorageMultisampleNV\n");
+	}
+
+	glRenderBufferStorageMultisampleEXT = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC) eglGetProcAddress( "glRenderBufferStorageMultisampleEXT");
+
+	if( !glRenderBufferStorageMultisampleEXT )
+	{
+		printf("Failed to get func pointer to glRenderBufferStorageMultisampleEXT\n");
+	}
+
 	glFramebufferTexture2DMultisampleEXT = (PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC) eglGetProcAddress( "glFramebufferTexture2DMultisampleEXT" );
 
 	if( !glFramebufferTexture2DMultisampleEXT )
 	{
-		printf("Failed to get func pointer to glFramebufferTexture2DMultisampleIMG\n");
+		printf("Failed to get func pointer to glFramebufferTexture2DMultisampleEXT\n");
 	}
 
 	glDiscardFramebufferEXT = (PFNGLDISCARDFRAMEBUFFEREXTPROC) eglGetProcAddress( "glDiscardFramebufferEXT" );
 
 	if( !glDiscardFramebufferEXT )
 	{
-		printf("Failed to get func pointer to glFramebufferTexture2DMultisampleIMG\n");
+		printf("Failed to get func pointer to glDiscardFramebufferEXT\n");
+	}
+
+	glBlitFramebufferANGLE = (PFNGLBLITFRAMEBUFFERANGLEPROC) eglGetProcAddress( "glBlitFramebufferANGLE" );
+
+	if( !glBlitFramebufferANGLE )
+	{
+		printf("Failed to get func pointer to glBlitFramebufferANGLE\n");
 	}
 
 	glBlitFramebufferNV = (PFNGLBLITFRAMEBUFFERNVPROC) eglGetProcAddress( "glBlitFramebufferNV" );
@@ -493,7 +532,9 @@ static void InitGLState( struct GlState* pGLState )
     stbi_image_free(imgData);
 }
 
-static void SetupFBO( 
+static void SetupFBO(
+	GLuint* rb,
+	GLuint* rbDepth,
 	GLuint* fbo,
 	GLuint* colorAttachmentTexture,
 	GLenum texture_format,
@@ -501,33 +542,90 @@ static void SetupFBO(
 	GLuint numOfSamples
 )
 {
+	glGenRenderbuffers( 1, rb );
+	glBindRenderbuffer(GL_RENDERBUFFER, *rb);
+	glRenderBufferStorageMultisampleNV(
+		GL_RENDERBUFFER, 
+		numOfSamples,
+		GL_RGBA4,
+		surfaceWidth, surfaceHeight
+	);
+	glCheckError();
+	GLint params = 0;
+	glGetRenderbufferParameteriv(
+		GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES_NV, &params
+	);
+	printf("RenerBuffer Samples : %d\n", params);
+	glCheckError();
+
+	glGenRenderbuffers( 1, rbDepth );
+	glBindRenderbuffer(GL_RENDERBUFFER, *rbDepth);
+	glRenderBufferStorageMultisampleNV(
+		GL_RENDERBUFFER, 
+		numOfSamples,
+		GL_DEPTH_COMPONENT16,
+		surfaceWidth, surfaceHeight
+	);
+	glCheckError();
+	glGetRenderbufferParameteriv(
+		GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES_NV, &params
+	);
+	printf("RenerBuffer Samples : %d\n", params);
+	glCheckError();
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+#if 0
 	glGenTextures(1, colorAttachmentTexture);
 	glBindTexture(GL_TEXTURE_2D, *colorAttachmentTexture);
 	glTexImage2D(
 		GL_TEXTURE_2D,
 		0,
-		texture_format,
+		GL_RGBA,
 		surfaceWidth, surfaceHeight,
-		0, texture_format,
-		pixelStorage,
+		0, GL_RGBA,
+		GL_UNSIGNED_BYTE,
 		NULL
 	);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glBindTexture(GL_TEXTURE_2D, 0);
+#endif
 
 	glGenFramebuffers( 1, fbo );
 	glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
-	glFramebufferTexture2DMultisampleEXT(
-		GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-		GL_TEXTURE_2D, *colorAttachmentTexture,
-		0,
-		numOfSamples
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER,
+		GL_COLOR_ATTACHMENT0,
+		GL_RENDERBUFFER,
+		*rb
 	);
+	glCheckError();
+	//glFramebufferRenderbuffer(
+	//	GL_FRAMEBUFFER, 
+	//	GL_DEPTH_ATTACHMENT,
+	//	GL_RENDERBUFFER,
+	//	*rbDepth
+	//);
+	//glCheckError();
+	//glFramebufferTexture2D(
+	//	GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+	//	GL_TEXTURE_2D, *colorAttachmentTexture,
+	//	0
+	//);
+	//glFramebufferTexture2DMultisampleEXT(
+	//	GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+	//	GL_TEXTURE_2D, *colorAttachmentTexture,
+	//	0,
+	//	numOfSamples
+	//);
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if( status != GL_FRAMEBUFFER_COMPLETE )
 	{
 		printf("Failed to Setup FBO errorcode : %d\n", status);
+	}
+	else if( status == GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE_NV )
+	{
+		printf("Failed to Setup FBO for multisample\n");
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -625,10 +723,12 @@ int main( int argc, const char* argv[] )
 	CreateEGLSurface( clientObjState.mpWlSurface, surfaceWidth, surfaceHeight, &clientObjState.mpEglContext );
 	InitGLState( &clientObjState.mGlState );
 	SetupFBO(
+		&clientObjState.mGlState.msaaRB,
+		&clientObjState.mGlState.msaaDepth,
 		&clientObjState.mGlState.msaaFBO,
 		&clientObjState.mGlState.msaaTexture,
-		GL_RGBA,
-		GL_UNSIGNED_SHORT_4_4_4_4,
+		GL_RGBA8_OES,
+		GL_UNSIGNED_BYTE,
 		numOfMSAAsamples
 	);
 	pTriangleMesh = malloc(sizeof(struct Mesh));
