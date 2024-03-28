@@ -47,7 +47,25 @@ static PFNGLMINSAMPLESHADINGOESPROC glMinSampleShadingOES = NULL;
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
 
 static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallback, uint32_t time );
-static void UpdateUniforms( struct ClientObjState* pClientObj );
+static void UpdateUniforms( 
+    struct ClientObjState* pClientObj
+);
+static void GetModelMatrix(
+    mat4 model,
+    float* scaling
+);
+static void GetViewMatrix(
+    mat4 view,
+    float* view_eye,
+    float* view_center,
+    float* view_up
+);
+static void GetProjMatrix(
+    mat4 proj,
+    float fovy,
+    float aspect,
+    float near, float far
+);
 static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time );
 static void drawTriangle(
 	struct ClientObjState* pClientObj, uint32_t time,
@@ -101,6 +119,10 @@ struct ClientObjState
 		
 		struct GfxPipeline vertexcolorPipeline;
 		struct GfxPipeline renderToQuadPipeline;
+
+        mat4 model;
+        mat4 view;
+        mat4 proj;
     }mGlState;
 
     struct Uniforms{
@@ -152,13 +174,50 @@ static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallbac
 	SwapEGLBuffers( &pClientObjState->mpEglContext );
 }
 
+static void GetModelMatrix(
+    mat4 model, float* scaling
+)
+{
+    glm_mat4_identity(model);
+    glm_scale(model, scaling);
+}
+
+static void GetViewMatrix(
+    mat4 view,
+    float* view_eye,
+    float* view_center,
+    float* view_up
+)
+{
+    glm_mat4_identity(view);
+    glm_lookat(
+		view_eye,
+		view_center,
+		view_up,
+		view
+	);
+}
+
+static void GetProjMatrix(
+    mat4 proj,
+    float fovy,
+    float aspect,
+    float near, float far
+)
+{
+    glm_mat4_identity(proj);
+    glm_make_rad(&fovy);
+    glm_perspective(
+        fovy,
+        aspect,
+        0.1,
+        10.0,
+        proj
+    );
+}
+
 static void UpdateUniforms( struct ClientObjState* pClientObj )
 {
-	mat4 model, view, projection;
-
-	glm_mat4_identity(model);
-	glm_mat4_identity(view);
-	glm_mat4_identity(projection);
 	glm_mat4_identity( pClientObj->mUniforms.mvp );
 	glm_mat4_identity( pClientObj->mUniforms.quadIdentityModelViewProj );
 
@@ -166,39 +225,46 @@ static void UpdateUniforms( struct ClientObjState* pClientObj )
 	float fovy = 45.0f;
 
 	//glm_make_rad(&degree);
-	glm_make_rad(&fovy);
 
 	clock_t duration = clock() - simulation_start;
 	float duration_in_secs = ( (float) duration ) / CLOCKS_PER_SEC;
 
 	float rotation_axis[] = { 0.0, 1.0, 0.0 };
-	glm_rotate(
-		model,
-		duration_in_secs * degree,
-		rotation_axis
-	);
+	//glm_rotate(
+	//	model,
+	//	duration_in_secs * degree,
+	//	rotation_axis
+	//);
+    float scaling[] = { 1.0, 1.0, 1.0 };
+    GetModelMatrix(
+        pClientObj->mGlState.model,
+        scaling
+    );
 
 	float view_eye[] = { 0.0, 0.0, 3.0 };
 	float view_center[] = { 0.0, 0.0, 0.0 };
 	float view_up[] = { 0.0, 1.0, 0.0 };
 
-	glm_lookat(
-		view_eye,
-		view_center,
-		view_up,
-		view
-	);
+	GetViewMatrix(
+        pClientObj->mGlState.view,
+        view_eye,
+        view_center,
+        view_up
+    );
 
-	glm_perspective(
-		fovy,
-		(float) surfaceWidth / (float) surfaceHeight,
-		0.1,
-		10.0,
-		projection
-	);
-
-	glm_mat4_mul( projection, view, pClientObj->mUniforms.mvp );
-	glm_mat4_mul( pClientObj->mUniforms.mvp, model, pClientObj->mUniforms.mvp );
+    GetProjMatrix(
+        pClientObj->mGlState.proj,
+        fovy,
+        (float) surfaceWidth / (float) surfaceHeight,
+		0.1, 10.0
+    );
+	
+    mat4* toMul [] = { 
+        &pClientObj->mGlState.proj,
+        &pClientObj->mGlState.view,
+        &pClientObj->mGlState.model
+    };
+    glm_mat4_mulN( toMul, 3, pClientObj->mUniforms.mvp );
 }
 
 static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
@@ -214,7 +280,13 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
 	}
 
-	drawQuad( 
+    glViewport(0, 0, pEglContext->mWindowWidth, pEglContext->mWindowHeight );
+
+	glClearColor(0.4, 0.2, 0.2, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_CULL_FACE);
+    
+	drawQuad(
 		pClientObj, time,
         0.0, 0.0, 0.0, 1.0,
 		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
@@ -304,16 +376,11 @@ static void drawQuad(
     struct GlState* pGlState = &pClientObj->mGlState;
 	struct GfxPipeline* pGfxPipeline = &pClientObj->mGlState.renderToQuadPipeline;
 
-	glViewport(0, 0, pEglContext->mWindowWidth, pEglContext->mWindowHeight );
-
-	glClearColor(clear_r, clear_g, clear_b, clear_a);
-	glClear(GL_COLOR_BUFFER_BIT);
-
 	glUseProgram(pGfxPipeline->gpuprogram);
 
 	glUniformMatrix4fv(
         pGfxPipeline->mvp_unifrom, 1, GL_FALSE,
-        (GLfloat*) pClientObj->mUniforms.quadIdentityModelViewProj 
+        (GLfloat*) pClientObj->mUniforms.mvp 
     );
     glUniform1i( pGfxPipeline->texSampler_uniform, 0 );
 
@@ -322,7 +389,7 @@ static void drawQuad(
 
     glVertexAttribPointer(
         pGfxPipeline->position_attribute,
-        2, GL_FLOAT, GL_FALSE,
+        3, GL_FLOAT, GL_FALSE,
         0,
         position
     );
@@ -641,7 +708,7 @@ int main( int argc, const char* argv[] )
 	pTriangleMesh = malloc(sizeof(struct Mesh));
 	pQuadMesh = malloc(sizeof(struct Mesh));
 	GetTriangleMesh(pTriangleMesh);
-	GetQuadMesh(pQuadMesh);
+	GetQuadMesh3D(pQuadMesh);
 
     clientObjState.mpXdgTopLevel = xdg_surface_get_toplevel( clientObjState.mpXdgSurface );
 	AssignXDGToplevelListener(clientObjState.mpXdgTopLevel, &clientObjState);
