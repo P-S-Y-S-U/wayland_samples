@@ -3,8 +3,8 @@
 
 #include <EGL/egl.h>
 
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
 
 #include "gl_error.h"
 
@@ -19,7 +19,7 @@ void LogRenderBufferInternals()
 {
     GLint maxSamples = 0;
 
-    glGetIntegerv( GL_MAX_SAMPLES_EXT, &maxSamples );
+    glGetIntegerv( GL_MAX_SAMPLES, &maxSamples );
     glCheckError();
 
     printf("Max number of Samples : %d\n", maxSamples);
@@ -266,10 +266,10 @@ void LogEGLConfig(
             {
                 if( value & EGL_OPENVG_BIT )
                     printf("\t%s = %s\n", GetEGLAttribString(attribQueries[i]), GetEGLRenderableTypeString(EGL_OPENVG_BIT));
-                else if(value & EGL_OPENGL_ES2_BIT)
-                    printf("\t%s = %s\n", GetEGLAttribString(attribQueries[i]), GetEGLRenderableTypeString(EGL_OPENGL_ES2_BIT));
                 else if(value & EGL_OPENGL_ES3_BIT)
                     printf("\t%s = %s\n", GetEGLAttribString(attribQueries[i]), GetEGLRenderableTypeString(EGL_OPENGL_ES3_BIT));
+                else if(value & EGL_OPENGL_ES2_BIT)
+                    printf("\t%s = %s\n", GetEGLAttribString(attribQueries[i]), GetEGLRenderableTypeString(EGL_OPENGL_ES2_BIT));
                 else if(value & EGL_OPENGL_ES_BIT)
                     printf("\t%s = %s\n", GetEGLAttribString(attribQueries[i]), GetEGLRenderableTypeString(EGL_OPENGL_ES_BIT));
                 else if( value & EGL_OPENGL_BIT )

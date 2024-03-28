@@ -1,4 +1,4 @@
-#define RENDERING_API EGL_OPENGL_ES2_BIT
+#define RENDERING_API EGL_OPENGL_ES3_BIT
 #define MSAA_SAMPLES 16
 //#define ENABLE_MSAA
 
@@ -10,8 +10,8 @@
 #include "shm_helper.h"
 #include "TexReader.h"
 
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
@@ -63,11 +63,10 @@ static void surface_configure_callback( void * pData, struct wl_callback* pCallb
 
 static void InitGLState( struct GlState* pGLState );
 
-static void SetupFBO( 
+static void SetupFBO(
+	GLuint* rb,
 	GLuint* fbo,
-	GLuint* colorAttachmentTexture,
-	GLenum texture_format,
-	GLenum pixelStorage,
+	GLenum internalFormat,
 	GLuint numOfSamples
 );
 
@@ -96,8 +95,8 @@ struct ClientObjState
         GLuint ibo;
         GLuint texture;
 
+		GLuint msaaRB;
 		GLuint msaaFBO;
-		GLuint msaaTexture;
 		
 		struct GfxPipeline vertexcolorPipeline;
 		struct GfxPipeline renderToQuadPipeline;
@@ -219,29 +218,15 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		pTriangleMesh->vertex_positions, pTriangleMesh->vertex_texcoords, pTriangleMesh->vertex_colors
 	);
 
-#if 0
-	glBindFramebuffer(GL_READ_FRAMEBUFFER_NV, pClientObj->mGlState.msaaFBO);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER_NV, 0);
-	glBlitFramebufferNV( 
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, pGlState->msaaFBO);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	glClearColor( 0.0, 0.0, 0.0, 1.0 );
+	glClear(GL_COLOR_BUFFER_BIT);
+	glBlitFramebuffer(
 		0, 0, surfaceWidth, surfaceHeight,
 		0, 0, surfaceWidth, surfaceHeight,
 		GL_COLOR_BUFFER_BIT,
 		GL_NEAREST
-	);
-#else
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-#endif
-	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if( status != GL_FRAMEBUFFER_COMPLETE )
-	{
-		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
-	}
-	drawQuad( 
-		pClientObj, time,
-		0.0, 0.0, 0.0, 1.0,
-		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
-		pQuadMesh->indices,
-		pClientObj->mGlState.msaaTexture
 	);
 }
 
@@ -493,35 +478,33 @@ static void InitGLState( struct GlState* pGLState )
     stbi_image_free(imgData);
 }
 
-static void SetupFBO( 
+static void SetupFBO(
+	GLuint* rb, 
 	GLuint* fbo,
-	GLuint* colorAttachmentTexture,
-	GLenum texture_format,
-	GLenum pixelStorage,
+	GLenum internalFormat,
 	GLuint numOfSamples
 )
 {
-	glGenTextures(1, colorAttachmentTexture);
-	glBindTexture(GL_TEXTURE_2D, *colorAttachmentTexture);
-	glTexImage2D(
-		GL_TEXTURE_2D,
-		0,
-		texture_format,
-		surfaceWidth, surfaceHeight,
-		0, texture_format,
-		pixelStorage,
-		NULL
+	glGenRenderbuffers( 1, rb );
+	glBindRenderbuffer(GL_RENDERBUFFER, *rb);
+	glRenderbufferStorageMultisample(
+		GL_RENDERBUFFER,
+		numOfSamples,
+		internalFormat,
+		surfaceWidth,
+		surfaceHeight
 	);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	GLint param = 0;
+	glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES, &param);
+	printf("RenderBuffer Samples %d\n", param);
 
 	glGenFramebuffers( 1, fbo );
 	glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
-	glFramebufferTexture2DMultisampleEXT(
-		GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-		GL_TEXTURE_2D, *colorAttachmentTexture,
-		0,
-		numOfSamples
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER,
+		GL_COLOR_ATTACHMENT0,
+		GL_RENDERBUFFER,
+		*rb
 	);
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -625,10 +608,9 @@ int main( int argc, const char* argv[] )
 	CreateEGLSurface( clientObjState.mpWlSurface, surfaceWidth, surfaceHeight, &clientObjState.mpEglContext );
 	InitGLState( &clientObjState.mGlState );
 	SetupFBO(
+		&clientObjState.mGlState.msaaRB,
 		&clientObjState.mGlState.msaaFBO,
-		&clientObjState.mGlState.msaaTexture,
-		GL_RGBA,
-		GL_UNSIGNED_SHORT_4_4_4_4,
+		GL_RGBA8_OES,
 		numOfMSAAsamples
 	);
 	pTriangleMesh = malloc(sizeof(struct Mesh));
@@ -661,9 +643,6 @@ int main( int argc, const char* argv[] )
 
 	glBindBuffer( GL_FRAMEBUFFER, 0 );
 	glDeleteFramebuffers( 1, &clientObjState.mGlState.msaaFBO );
-
-	glBindTexture( GL_TEXTURE_2D, 0 );
-	glDeleteTextures(1, &clientObjState.mGlState.msaaTexture );
 
 	ShutdownEGLContext( &clientObjState.mpEglContext, clientObjState.mpXdgTopLevel, clientObjState.mpXdgSurface, clientObjState.mpWlSurface );
     wl_display_disconnect(pDisplay);

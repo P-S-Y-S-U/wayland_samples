@@ -2,38 +2,44 @@
 #define SHADERS_H
 
 static const char* vertex_color_vertex_shader_text = 
+	"#version 300 es\n"
     "uniform mat4 mvp;\n"
-    "attribute vec4 pos;\n"
-    "attribute vec4 color;\n"
-	"varying vec4 vertex_color;\n"
+    "in vec4 pos;\n"
+    "in vec4 color;\n"
+	"out vec4 vertex_color;\n"
 	"void main() {\n"
 	" gl_Position = mvp * pos;\n"
 	" vertex_color = color;\n"
 	"}\n";
 
 static const char* vertex_color_frag_shader_text = 
+	"#version 300 es\n"
 	"precision highp float;\n"
-	"varying vec4 vertex_color;\n"
+	"in vec4 vertex_color;\n"
+	"out vec4 fragColor;\n"
 	"void main() {\n"
-	"  gl_FragColor = vertex_color;\n"
+	"  fragColor = vertex_color;\n"
 	"}\n";
 
 static const char* sample_texture_vertex_shader_text = 
+	"#version 300 es\n"
     "uniform mat4 mvp;\n"
-    "attribute vec4 pos;\n"
-    "attribute vec2 texcoord;\n"
-    "varying vec2 out_texcoord;\n"
+    "in vec4 pos;\n"
+    "in vec2 texcoord;\n"
+    "out vec2 out_texcoord;\n"
 	"void main() {\n"
 	" gl_Position = mvp * pos;\n"
     " out_texcoord = texcoord;\n"
 	"}\n";
 
 static const char* sample_texture_frag_shader_text = 
+	"#version 300 es\n"
+	"uniform sampler2D texSampler;\n"
 	"precision highp float;\n"
-    "varying vec2 out_texcoord;\n"
-    "uniform sampler2D texSampler;\n"
+    "in vec2 out_texcoord;\n"
+	"out vec4 fragColor;\n"
 	"void main() {\n"
-	"  gl_FragColor = texture2D(texSampler, out_texcoord);\n"
+	"  fragColor = texture2D(texSampler, out_texcoord);\n"
 	"}\n";
 
 static GLuint createShader( const char* source, GLenum shaderType )

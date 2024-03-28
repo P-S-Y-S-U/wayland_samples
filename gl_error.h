@@ -2,7 +2,7 @@
 #define GL_ERROR_H
 
 #include <string.h>
-#include <GLES2/gl2.h>
+#include <GLES3/gl3.h>
 
 static GLenum glCheckError_(const char *file, int line)
 {
