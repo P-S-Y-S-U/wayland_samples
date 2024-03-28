@@ -311,7 +311,7 @@ static int16_t DownloadUsingPBO(
     GLenum status;
     GLuint fbo;
 
-    printf("TexReader Pointer %x\n", pTexReader);
+    printf("TexReader Pointer %p\n", (void*)pTexReader);
     printf("%ld vs %ld\n", pixelDumpSizeInBytes, pTexReader->m_pboBufferSizeInBytes );
 
     if( pixelDumpSizeInBytes != pTexReader->m_pboBufferSizeInBytes  )

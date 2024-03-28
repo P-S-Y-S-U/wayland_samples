@@ -13,15 +13,16 @@ void LogEGLConfig(
     EGLConfig eglConfig
 );
 
-void LogRenderBufferInternals();
+void LogGLInfo();
 
-void LogRenderBufferInternals()
+void LogGLInfo()
 {
     GLint maxSamples = 0;
 
     glGetIntegerv( GL_MAX_SAMPLES, &maxSamples );
     glCheckError();
 
+    printf("Renderer %s\nVersion %s\nShading Language %s\n", glGetString(GL_RENDERER), glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
     printf("Max number of Samples : %d\n", maxSamples);
 }
 
