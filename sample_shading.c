@@ -1,6 +1,6 @@
 #define RENDERING_API EGL_OPENGL_ES3_BIT
 #define MSAA_SAMPLES 16
-#define ENABLE_MSAA
+//#define ENABLE_MSAA
 
 #define IMAGE_FILE_PATH "./Text_Sample.png"
 
@@ -42,6 +42,7 @@ static clock_t simulation_start;
 static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC glFramebufferTexture2DMultisampleEXT = NULL;
 static PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT = NULL;
 static PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV = NULL;
+static PFNGLMINSAMPLESHADINGOESPROC glMinSampleShadingOES = NULL;
 
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
 
@@ -213,9 +214,12 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
 	}
 
-	drawTriangle( 
+	drawQuad( 
 		pClientObj, time,
-		pTriangleMesh->vertex_positions, pTriangleMesh->vertex_texcoords, pTriangleMesh->vertex_colors
+        0.0, 0.0, 0.0, 1.0,
+		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
+        pQuadMesh->indices,
+        pGlState->texture
 	);
 
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, pGlState->msaaFBO);
@@ -303,7 +307,7 @@ static void drawQuad(
 	glViewport(0, 0, pEglContext->mWindowWidth, pEglContext->mWindowHeight );
 
 	glClearColor(clear_r, clear_g, clear_b, clear_a);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT);
 
 	glUseProgram(pGfxPipeline->gpuprogram);
 
@@ -408,6 +412,13 @@ static void InitGLState( struct GlState* pGLState )
 		printf("Failed to get func pointer to glBlitFramebufferNV\n");
 	}
 
+    glMinSampleShadingOES = (PFNGLMINSAMPLESHADINGOESPROC) eglGetProcAddress( "glMinSampleShadingOES" );
+
+    if( !glMinSampleShadingOES )
+    {
+        printf("Failed to get func pointer to glMinSampleShadingOES\n");
+    }
+
 	pGLState->vertexcolorPipeline.gpuprogram = createGPUProgram(
 		vertex_color_vertex_shader_text, vertex_color_frag_shader_text
 	);
@@ -476,6 +487,20 @@ static void InitGLState( struct GlState* pGLState )
     glCheckError();
 
     stbi_image_free(imgData);
+
+    glEnable(GL_SAMPLE_SHADING_OES);
+    glCheckError();
+    GLfloat minSampleShading = 0.2;
+    glMinSampleShadingOES(minSampleShading);
+    glCheckError();
+
+    GLfloat paramf;
+    glGetFloatv(GL_MIN_SAMPLE_SHADING_VALUE_OES, &paramf);
+    printf(
+        "Sample Shading : %s Sample Shading Value: %f\n", 
+        glIsEnabled(GL_SAMPLE_SHADING_OES) ? "Enabled" : "Disabled",
+        paramf
+    );
 }
 
 static void SetupFBO(

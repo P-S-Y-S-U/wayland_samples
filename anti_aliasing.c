@@ -1,6 +1,6 @@
 #define RENDERING_API EGL_OPENGL_ES3_BIT
 #define MSAA_SAMPLES 16
-//#define ENABLE_MSAA
+#define ENABLE_MSAA
 
 #define IMAGE_FILE_PATH "./Text_Sample.png"
 
