@@ -43,10 +43,12 @@ static PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC glRenderBufferStorageMultisamp
 static PFNGLRENDERBUFFERSTORAGEMULTISAMPLENVPROC glRenderBufferStorageMultisampleNV = NULL;
 
 static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC glFramebufferTexture2DMultisampleEXT = NULL;
+static PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC glRenderbufferStorageMultisampleEXT = NULL;
 static PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT = NULL;
-
 static PFNGLBLITFRAMEBUFFERANGLEPROC glBlitFramebufferANGLE = NULL;
 static PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV = NULL;
+
+static PFNGLTEXSTORAGE2DEXTPROC glTexStorage2DEXT = NULL;
 
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
 
@@ -69,12 +71,9 @@ static void surface_configure_callback( void * pData, struct wl_callback* pCallb
 static void InitGLState( struct GlState* pGLState );
 
 static void SetupFBO(
-	GLuint* rb,
-	GLuint* rbDepth,
 	GLuint* fbo,
-	GLuint* colorAttachmentTexture,
-	GLenum texture_format,
-	GLenum pixelStorage,
+	GLuint* colorRenderBuffer,
+	GLuint* depthRenderBuffer,
 	GLuint numOfSamples
 );
 
@@ -103,11 +102,10 @@ struct ClientObjState
         GLuint ibo;
         GLuint texture;
 
-		GLuint msaaRB;
-		GLuint msaaDepth;
 		GLuint msaaFBO;
-		GLuint msaaTexture;
-		
+		GLuint msaaDepthrenderbuffer;
+		GLuint msaaColorRenderbuffer;
+
 		struct GfxPipeline vertexcolorPipeline;
 		struct GfxPipeline renderToQuadPipeline;
     }mGlState;
@@ -229,16 +227,18 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 	);
 
 #if 1
-	glBindFramebuffer(GL_READ_BUFFER_EXT, pClientObj->mGlState.msaaFBO);
-	glCheckError();
-	glBindFramebuffer(GL_DRAW_BUFFER_EXT, 0);
-	glCheckError();
-	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER_NV, pClientObj->mGlState.msaaFBO);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER_NV, 0);
+	status = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER_NV);
 	if( status != GL_FRAMEBUFFER_COMPLETE )
 	{
-		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
+		printf("Failed to Setup READ FBO errorcode : %d at %d\n", status, __LINE__);
 	}
-	glViewport(0, 0, pEglContext->mWindowWidth, pEglContext->mWindowHeight );
+	status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER_NV);
+	if( status != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf("Failed to Setup DRAW FBO errorcode : %d at %d\n", status, __LINE__);
+	}
 	glClearColor( 0.0, 0.0, 0.0, 1.0 );
 	glClear( GL_COLOR_BUFFER_BIT );
 	glBlitFramebufferNV( 
@@ -250,17 +250,20 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 	glCheckError();
 #else
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-#endif
-	
 
-	
-	//drawQuad( 
-	//	pClientObj, time,
-	//	0.0, 0.0, 0.0, 1.0,
-	//	pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
-	//	pQuadMesh->indices,
-	//	pClientObj->mGlState.msaaTexture
-	//);
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if( status != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
+	}
+	drawQuad( 
+		pClientObj, time,
+		0.0, 0.0, 0.0, 1.0,
+		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
+		pQuadMesh->indices,
+		pClientObj->mGlState.msaaTexture
+	);
+#endif
 }
 
 static void drawTriangle(
@@ -441,6 +444,13 @@ static void InitGLState( struct GlState* pGLState )
 		printf("Failed to get func pointer to glFramebufferTexture2DMultisampleEXT\n");
 	}
 
+	glRenderbufferStorageMultisampleEXT = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC) eglGetProcAddress( "glRenderbufferStorageMultisampleEXT" );
+
+	if( !glRenderbufferStorageMultisampleEXT )
+	{
+		printf("Failed to get Func pointer to glRenderbufferStorageMultisampleEXT\n");
+	}
+
 	glDiscardFramebufferEXT = (PFNGLDISCARDFRAMEBUFFEREXTPROC) eglGetProcAddress( "glDiscardFramebufferEXT" );
 
 	if( !glDiscardFramebufferEXT )
@@ -460,6 +470,12 @@ static void InitGLState( struct GlState* pGLState )
 	if( !glBlitFramebufferNV )
 	{
 		printf("Failed to get func pointer to glBlitFramebufferNV\n");
+	}
+
+	glTexStorage2DEXT = (PFNGLTEXSTORAGE2DEXTPROC) eglGetProcAddress( "glTexStorage2DEXT" );
+	if( !glTexStorage2DEXT )
+	{
+		printf("Failed to get func pointer to glTexStorage2DEXT\n");
 	}
 
 	pGLState->vertexcolorPipeline.gpuprogram = createGPUProgram(
@@ -533,44 +549,33 @@ static void InitGLState( struct GlState* pGLState )
 }
 
 static void SetupFBO(
-	GLuint* rb,
-	GLuint* rbDepth,
 	GLuint* fbo,
-	GLuint* colorAttachmentTexture,
-	GLenum texture_format,
-	GLenum pixelStorage,
+	GLuint* colorRenderBuffer,
+	GLuint* depthRenderBuffer,
 	GLuint numOfSamples
 )
 {
-	glGenRenderbuffers( 1, rb );
-	glBindRenderbuffer(GL_RENDERBUFFER, *rb);
-	glRenderBufferStorageMultisampleNV(
-		GL_RENDERBUFFER, 
+	glGenFramebuffers( 1, fbo );
+	glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
+
+	glGenRenderbuffers( 1, colorRenderBuffer );
+	glBindRenderbuffer(GL_RENDERBUFFER, *colorRenderBuffer);
+	glRenderbufferStorageMultisampleEXT(
+		GL_RENDERBUFFER,
 		numOfSamples,
-		GL_RGBA4,
+		GL_RGBA8_OES,
 		surfaceWidth, surfaceHeight
 	);
 	glCheckError();
-	GLint params = 0;
-	glGetRenderbufferParameteriv(
-		GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES_NV, &params
-	);
-	printf("RenerBuffer Samples : %d\n", params);
-	glCheckError();
 
-	glGenRenderbuffers( 1, rbDepth );
-	glBindRenderbuffer(GL_RENDERBUFFER, *rbDepth);
-	glRenderBufferStorageMultisampleNV(
-		GL_RENDERBUFFER, 
+	glGenRenderbuffers( 1, depthRenderBuffer);
+	glBindRenderbuffer(GL_RENDERBUFFER, *depthRenderBuffer);
+	glRenderbufferStorageMultisampleEXT(
+		GL_RENDERBUFFER,
 		numOfSamples,
 		GL_DEPTH_COMPONENT16,
 		surfaceWidth, surfaceHeight
 	);
-	glCheckError();
-	glGetRenderbufferParameteriv(
-		GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES_NV, &params
-	);
-	printf("RenerBuffer Samples : %d\n", params);
 	glCheckError();
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
@@ -586,17 +591,33 @@ static void SetupFBO(
 		GL_UNSIGNED_BYTE,
 		NULL
 	);
+	//glTexStorage2DEXT(
+	//	GL_TEXTURE_2D,
+	//	0,
+	//	GL_RGBA16_EXT,
+	//	surfaceWidth, surfaceHeight
+	//);
+	glCheckError();
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	//glFramebufferTexture2DMultisampleEXT(
+	//	GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+	//	GL_TEXTURE_2D, *colorAttachmentTexture,
+	//	0,
+	//	numOfSamples
+	//);
 #endif
 
-	glGenFramebuffers( 1, fbo );
-	glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
 	glFramebufferRenderbuffer(
 		GL_FRAMEBUFFER,
 		GL_COLOR_ATTACHMENT0,
-		GL_RENDERBUFFER,
-		*rb
+		GL_RENDERBUFFER, *colorRenderBuffer
+	);
+	glCheckError();
+	glFramebufferRenderbuffer(
+		GL_FRAMEBUFFER,
+		GL_DEPTH_ATTACHMENT,
+		GL_RENDERBUFFER, *depthRenderBuffer
 	);
 	glCheckError();
 	//glFramebufferRenderbuffer(
@@ -628,7 +649,30 @@ static void SetupFBO(
 		printf("Failed to Setup FBO for multisample\n");
 	}
 
+	GLint param = 0;
+	glGetFramebufferAttachmentParameteriv(
+		GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_SAMPLES_EXT, &param
+	);
+	glCheckError();
+	printf("FrameBuffer Texture Samples : %d\n", param);
+	
+	glBindRenderbuffer( GL_RENDERBUFFER, *colorRenderBuffer );
+	glGetRenderbufferParameteriv(
+		GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES_EXT, &param
+	);
+	glCheckError();
+	printf("Color Renderbuffer Samples EXT: %d\n", param);
+
+	glBindRenderbuffer( GL_RENDERBUFFER, *depthRenderBuffer );
+	glGetRenderbufferParameteriv(
+		GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES_EXT, &param
+	);
+	glCheckError();
+	printf("Depth Renderbuffer Samples EXT: %d\n", param);
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 static void xdg_surface_configure(
@@ -723,12 +767,9 @@ int main( int argc, const char* argv[] )
 	CreateEGLSurface( clientObjState.mpWlSurface, surfaceWidth, surfaceHeight, &clientObjState.mpEglContext );
 	InitGLState( &clientObjState.mGlState );
 	SetupFBO(
-		&clientObjState.mGlState.msaaRB,
-		&clientObjState.mGlState.msaaDepth,
 		&clientObjState.mGlState.msaaFBO,
-		&clientObjState.mGlState.msaaTexture,
-		GL_RGBA8_OES,
-		GL_UNSIGNED_BYTE,
+		&clientObjState.mGlState.msaaColorRenderbuffer,
+		&clientObjState.mGlState.msaaDepthrenderbuffer,
 		numOfMSAAsamples
 	);
 	pTriangleMesh = malloc(sizeof(struct Mesh));
@@ -761,9 +802,6 @@ int main( int argc, const char* argv[] )
 
 	glBindBuffer( GL_FRAMEBUFFER, 0 );
 	glDeleteFramebuffers( 1, &clientObjState.mGlState.msaaFBO );
-
-	glBindTexture( GL_TEXTURE_2D, 0 );
-	glDeleteTextures(1, &clientObjState.mGlState.msaaTexture );
 
 	ShutdownEGLContext( &clientObjState.mpEglContext, clientObjState.mpXdgTopLevel, clientObjState.mpXdgSurface, clientObjState.mpWlSurface );
     wl_display_disconnect(pDisplay);
