@@ -22,7 +22,7 @@ set(PROJECT_LIB     "lib")
 set(PROJECT_ARCHIVE "lib/static")
 set(PROJECT_INSTALL ${CMAKE_INSTALL_PREFIX})
 set(PROJECT_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/include")
-
+list(APPEND PROJECT_INCLUDE_DIR "${CMAKE_PREFIX_PATH}/include")
 # PROJECT CMAKE SCRIPT REQUIREMENTS (Dependencies cmake script)#
 
 # CONAN SETUP #
@@ -84,6 +84,7 @@ add_executable(GLInfo gl_info.c)
 target_include_directories(GLInfo  PUBLIC                   $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
                                                             $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                             $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
+                                                            $<BUILD_INTERFACE:${Wayland_Client_INCLUDE_DIR}>
                                                             )
 target_link_libraries(GLInfo PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY}) 
 ##########
