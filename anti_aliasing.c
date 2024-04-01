@@ -172,11 +172,11 @@ static void UpdateUniforms( struct ClientObjState* pClientObj )
 	float duration_in_secs = ( (float) duration ) / CLOCKS_PER_SEC;
 
 	float rotation_axis[] = { 0.0, 1.0, 0.0 };
-	glm_rotate(
-		model,
-		duration_in_secs * degree,
-		rotation_axis
-	);
+	//glm_rotate(
+	//	model,
+	//	duration_in_secs * degree,
+	//	rotation_axis
+	//);
 
 	float view_eye[] = { 0.0, 0.0, 3.0 };
 	float view_center[] = { 0.0, 0.0, 0.0 };
@@ -513,6 +513,7 @@ static void SetupFBO(
 		NULL
 	);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	glGenFramebuffers( 1, fbo );
@@ -523,6 +524,7 @@ static void SetupFBO(
 		0,
 		numOfSamples
 	);
+	glCheckError();
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if( status != GL_FRAMEBUFFER_COMPLETE )
@@ -530,6 +532,13 @@ static void SetupFBO(
 		printf("Failed to Setup FBO errorcode : %d\n", status);
 	}
 
+	GLint framebufferSamples = 0;
+	glGetFramebufferAttachmentParameteriv(
+		GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_SAMPLES_EXT, &framebufferSamples
+	);
+	glCheckError();
+	printf("FrameBuffer Texture Samples : %d\n", framebufferSamples);
+	
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
