@@ -614,6 +614,14 @@ static void SetupFBO(
 	glCheckError();
 	printf("Color Renderbuffer Samples EXT: %d\n", param);
 
+	glGetIntegerv(GL_SAMPLE_BUFFERS, &param);
+	glCheckError();
+	printf("MSAA FBO Samples Buffers: %d\n", param);
+
+	glGetIntegerv(GL_SAMPLES, &param);
+	glCheckError();
+	printf("MSAA FBO Samples: %d\n", param);
+
 	//glBindRenderbuffer( GL_RENDERBUFFER, *depthRenderBuffer );
 	//glGetRenderbufferParameteriv(
 	//	GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES_EXT, &param
@@ -624,6 +632,14 @@ static void SetupFBO(
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glGetIntegerv(GL_SAMPLE_BUFFERS, &param);
+	glCheckError();
+	printf("Default FBO Samples Buffers: %d\n", param);
+
+	glGetIntegerv(GL_SAMPLES, &param);
+	glCheckError();
+	printf("Default FBO Samples: %d\n", param);
 }
 
 static void xdg_surface_configure(
