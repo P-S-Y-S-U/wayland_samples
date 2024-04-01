@@ -1,6 +1,6 @@
 #define RENDERING_API EGL_OPENGL_ES3_BIT
 #define MSAA_SAMPLES 16
-#define ENABLE_MSAA
+//#define ENABLE_MSAA
 
 #define IMAGE_FILE_PATH "./Text_Sample.png"
 
@@ -228,6 +228,7 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		GL_COLOR_BUFFER_BIT,
 		GL_NEAREST
 	);
+	glCheckError();
 }
 
 static void drawTriangle(
@@ -513,7 +514,32 @@ static void SetupFBO(
 		printf("Failed to Setup FBO errorcode : %d\n", status);
 	}
 
+	glGetIntegerv(GL_SAMPLE_BUFFERS, &param);
+	glCheckError();
+	printf("MSAA FBO Samples Buffers: %d\n", param);
+
+	glGetIntegerv(GL_SAMPLES, &param);
+	glCheckError();
+	printf("MSAA FBO Samples: %d\n", param);
+
+	//glBindRenderbuffer( GL_RENDERBUFFER, *depthRenderBuffer );
+	//glGetRenderbufferParameteriv(
+	//	GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES_EXT, &param
+	//);
+	//glCheckError();
+	//printf("Depth Renderbuffer Samples EXT: %d\n", param);
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glGetIntegerv(GL_SAMPLE_BUFFERS, &param);
+	glCheckError();
+	printf("Default FBO Samples Buffers: %d\n", param);
+
+	glGetIntegerv(GL_SAMPLES, &param);
+	glCheckError();
+	printf("Default FBO Samples: %d\n", param);
 }
 
 static void xdg_surface_configure(
