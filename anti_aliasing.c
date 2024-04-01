@@ -73,7 +73,6 @@ static void InitGLState( struct GlState* pGLState );
 static void SetupFBO(
 	GLuint* fbo,
 	GLuint* colorRenderBuffer,
-	GLuint* depthRenderBuffer,
 	GLuint numOfSamples
 );
 
@@ -103,7 +102,6 @@ struct ClientObjState
         GLuint texture;
 
 		GLuint msaaFBO;
-		GLuint msaaDepthrenderbuffer;
 		GLuint msaaColorRenderbuffer;
 
 		struct GfxPipeline vertexcolorPipeline;
@@ -551,7 +549,6 @@ static void InitGLState( struct GlState* pGLState )
 static void SetupFBO(
 	GLuint* fbo,
 	GLuint* colorRenderBuffer,
-	GLuint* depthRenderBuffer,
 	GLuint numOfSamples
 )
 {
@@ -568,45 +565,17 @@ static void SetupFBO(
 	);
 	glCheckError();
 
-	glGenRenderbuffers( 1, depthRenderBuffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, *depthRenderBuffer);
-	glRenderbufferStorageMultisampleEXT(
-		GL_RENDERBUFFER,
-		numOfSamples,
-		GL_DEPTH_COMPONENT16,
-		surfaceWidth, surfaceHeight
-	);
-	glCheckError();
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-#if 0
-	glGenTextures(1, colorAttachmentTexture);
-	glBindTexture(GL_TEXTURE_2D, *colorAttachmentTexture);
-	glTexImage2D(
-		GL_TEXTURE_2D,
-		0,
-		GL_RGBA,
-		surfaceWidth, surfaceHeight,
-		0, GL_RGBA,
-		GL_UNSIGNED_BYTE,
-		NULL
-	);
-	//glTexStorage2DEXT(
-	//	GL_TEXTURE_2D,
-	//	0,
-	//	GL_RGBA16_EXT,
+	//glGenRenderbuffers( 1, depthRenderBuffer);
+	//glBindRenderbuffer(GL_RENDERBUFFER, *depthRenderBuffer);
+	//glRenderbufferStorageMultisampleEXT(
+	//	GL_RENDERBUFFER,
+	//	numOfSamples,
+	//	GL_DEPTH_COMPONENT16,
 	//	surfaceWidth, surfaceHeight
 	//);
-	glCheckError();
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	//glFramebufferTexture2DMultisampleEXT(
-	//	GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-	//	GL_TEXTURE_2D, *colorAttachmentTexture,
-	//	0,
-	//	numOfSamples
-	//);
-#endif
+	//glCheckError();
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
 
 	glFramebufferRenderbuffer(
 		GL_FRAMEBUFFER,
@@ -614,30 +583,12 @@ static void SetupFBO(
 		GL_RENDERBUFFER, *colorRenderBuffer
 	);
 	glCheckError();
-	glFramebufferRenderbuffer(
-		GL_FRAMEBUFFER,
-		GL_DEPTH_ATTACHMENT,
-		GL_RENDERBUFFER, *depthRenderBuffer
-	);
-	glCheckError();
 	//glFramebufferRenderbuffer(
-	//	GL_FRAMEBUFFER, 
+	//	GL_FRAMEBUFFER,
 	//	GL_DEPTH_ATTACHMENT,
-	//	GL_RENDERBUFFER,
-	//	*rbDepth
+	//	GL_RENDERBUFFER, *depthRenderBuffer
 	//);
 	//glCheckError();
-	//glFramebufferTexture2D(
-	//	GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-	//	GL_TEXTURE_2D, *colorAttachmentTexture,
-	//	0
-	//);
-	//glFramebufferTexture2DMultisampleEXT(
-	//	GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-	//	GL_TEXTURE_2D, *colorAttachmentTexture,
-	//	0,
-	//	numOfSamples
-	//);
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if( status != GL_FRAMEBUFFER_COMPLETE )
@@ -663,12 +614,12 @@ static void SetupFBO(
 	glCheckError();
 	printf("Color Renderbuffer Samples EXT: %d\n", param);
 
-	glBindRenderbuffer( GL_RENDERBUFFER, *depthRenderBuffer );
-	glGetRenderbufferParameteriv(
-		GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES_EXT, &param
-	);
-	glCheckError();
-	printf("Depth Renderbuffer Samples EXT: %d\n", param);
+	//glBindRenderbuffer( GL_RENDERBUFFER, *depthRenderBuffer );
+	//glGetRenderbufferParameteriv(
+	//	GL_RENDERBUFFER, GL_RENDERBUFFER_SAMPLES_EXT, &param
+	//);
+	//glCheckError();
+	//printf("Depth Renderbuffer Samples EXT: %d\n", param);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
@@ -769,7 +720,6 @@ int main( int argc, const char* argv[] )
 	SetupFBO(
 		&clientObjState.mGlState.msaaFBO,
 		&clientObjState.mGlState.msaaColorRenderbuffer,
-		&clientObjState.mGlState.msaaDepthrenderbuffer,
 		numOfMSAAsamples
 	);
 	pTriangleMesh = malloc(sizeof(struct Mesh));
