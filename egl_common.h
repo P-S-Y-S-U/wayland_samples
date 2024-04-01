@@ -75,7 +75,7 @@ void InitEGLContext( struct eglContext* pEglContext )
         EGL_BLUE_SIZE, 8,
         EGL_ALPHA_SIZE, 8,
         EGL_RENDERABLE_TYPE, RENDERING_API,
-#ifdef ENABLE_MSAA
+#ifdef USE_SAMPLE_BUFFERS
         EGL_SAMPLE_BUFFERS, 1,
         EGL_SAMPLES, MSAA_SAMPLES,
 #endif
