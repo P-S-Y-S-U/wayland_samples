@@ -3,8 +3,10 @@
 #include "client_common.h"
 #include "xdg_client_common.h"
 #include "shm_helper.h"
+#include "gldebug.h"
 
 #include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -145,6 +147,8 @@ static void surface_configure_callback( void* pData, struct wl_callback* pCallba
 
 static void InitGLState()
 {
+	InitDebugMessenger();
+	
 	GLuint frag, vert;
 	GLuint program;
 	GLint status;
