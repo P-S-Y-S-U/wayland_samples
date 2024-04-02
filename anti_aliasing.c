@@ -24,6 +24,7 @@
 
 #include "shaders.h"
 #include "mesh.h"
+#include "gldebug.h"
 
 struct ClientObjState;
 struct GlState;
@@ -421,6 +422,8 @@ static void surface_configure_callback( void* pData, struct wl_callback* pCallba
 
 static void InitGLState( struct GlState* pGLState )
 {
+	InitDebugMessenger();
+	
 	glRenderBufferStorageMultisampleNV = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLENVPROC) eglGetProcAddress( "glRenderBufferStorageMultisampleNV" );
 	
 	if( !glRenderBufferStorageMultisampleNV )
