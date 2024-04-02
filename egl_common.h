@@ -88,6 +88,7 @@ void InitEGLContext( struct eglContext* pEglContext )
     EGLint const context_attribs [] = {
         EGL_CONTEXT_MAJOR_VERSION, CONTEXT_MAJOR_VERSION,
         EGL_CONTEXT_MINOR_VERSION, CONTEXT_MINOR_VERSION,
+        EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
         EGL_NONE
     };
 
