@@ -1,12 +1,80 @@
+//#define OPENGL_ES1 1
+#define OPENGL_ES2 1
+//#define OPENGL_ES3 1
+
 #include <wayland-client.h>
 #include <wayland-egl.h>
 #include <EGL/egl.h>
 #include <EGL/eglplatform.h>
+
+#ifdef OPENGL_ES1
 #include <GLES/gl.h>
 #include <GLES/glext.h>
+
+#ifndef RENDERING_API
+#define RENDERING_API EGL_OPENGL_ES_BIT
+#endif
+
+#ifndef FILENAME
+#define FILENAME "gles-1-info.log"
+#endif
+
+#ifndef MAJOR_VERSION
+#define MAJOR_VERSION 1
+#endif
+
+#ifndef MINOR_VERSION
+#define MINOR_VERSION 0
+#endif
+
+#endif
+
+#ifdef OPENGL_ES2
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+
+#ifndef RENDERING_API
+#define RENDERING_API EGL_OPENGL_ES2_BIT
+#endif
+
+#ifndef FILENAME
+#define FILENAME "gles-2-info.log"
+#endif
+
+#ifndef MAJOR_VERSION
+#define MAJOR_VERSION 2
+#endif
+
+#ifndef MINOR_VERSION
+#define MINOR_VERSION 0
+#endif
+
+#endif
+
+#ifdef OPENGL_ES3
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
+
+#ifndef RENDERING_API
+#define RENDERING_API EGL_OPENGL_ES3_BIT
+#endif
+
+#ifndef FILENAME
+#define FILENAME "gles-3-info.log"
+#endif
+
+#ifndef MAJOR_VERSION
+#define MAJOR_VERSION 3
+#endif
+
+#ifndef MINOR_VERSION
+#define MINOR_VERSION 0
+#endif
+
+#endif
+
 #include <stdio.h>
 #include <string.h>
-
 
 struct wl_display* wlDisplay;
 struct wl_compositor* wlCompositor;
@@ -68,12 +136,13 @@ int main( int* argc, int* argv[] )
         EGL_GREEN_SIZE, 1,
         EGL_BLUE_SIZE, 1,
         EGL_ALPHA_SIZE, 1,
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+        EGL_RENDERABLE_TYPE, RENDERING_API,
         EGL_NONE
     };
 
     EGLint const context_attribs [] = {
-        EGL_CONTEXT_CLIENT_VERSION, 2,
+        EGL_CONTEXT_MAJOR_VERSION, MAJOR_VERSION,
+        EGL_CONTEXT_MINOR_VERSION, MINOR_VERSION,
         EGL_NONE
     };
 
@@ -102,6 +171,12 @@ int main( int* argc, int* argv[] )
     EGLSurface eglSurface = eglCreateWindowSurface( eglDisplay, eglConfig, eglNativeWindow, NULL );
     eglMakeCurrent( eglDisplay, eglSurface, eglSurface, eglContext );
 
+    FILE* fptr;
+    fptr = fopen( FILENAME, "w" );
+    
+    char* renderer = (char*) glGetString(GL_RENDERER);
+    char* glVersion = (char*) glGetString(GL_VERSION);
+    char* glslVersion = (char*) glGetString(GL_SHADING_LANGUAGE_VERSION);
     char* extension = 
         (char*)glGetString(GL_EXTENSIONS);
     
@@ -111,8 +186,11 @@ int main( int* argc, int* argv[] )
             extension[i] = '\n';
     }
 
-    printf("GL Extensions : \n %s\n", extension); 
+    fprintf(fptr, "Renderer: %s\nGL VERSION: %s\nGLSL VERSION: %s\n", renderer, glVersion, glslVersion);
+    fprintf(fptr,"GL Extensions : \n %s\n", extension); 
     
+    fclose(fptr);
+
     eglDestroySurface( wlDisplay, eglSurface );
     wl_egl_window_destroy( eglNativeWindow );
     wl_surface_destroy( wlSurface );
