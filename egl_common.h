@@ -13,6 +13,18 @@
 
 #include "xdg-shell-client-protocol.h"
 
+#ifndef RENDERING_API
+#define RENDERING_API EGL_OPENGL_ES3_BIT
+#endif
+
+#ifndef CONTEXT_MAJOR_VERSION
+#define CONTEXT_MAJOR_VERSION 3
+#endif
+
+#ifndef CONTEXT_MINOR_VERSION
+#define CONTEXT_MINOR_VERSION 0
+#endif
+
 struct eglContext
 {
     EGLNativeDisplayType mNativeDisplay;
@@ -69,12 +81,13 @@ void InitEGLContext( struct eglContext* pEglContext )
         EGL_GREEN_SIZE, 1,
         EGL_BLUE_SIZE, 1,
         EGL_ALPHA_SIZE, 1,
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+        EGL_RENDERABLE_TYPE, RENDERING_API,
         EGL_NONE
     };
 
     EGLint const context_attribs [] = {
-        EGL_CONTEXT_CLIENT_VERSION, 2,
+        EGL_CONTEXT_MAJOR_VERSION, CONTEXT_MAJOR_VERSION,
+        EGL_CONTEXT_MINOR_VERSION, CONTEXT_MINOR_VERSION,
         EGL_NONE
     };
 
