@@ -1,6 +1,6 @@
 //#define OPENGL_ES1 1
-//#define OPENGL_ES2 1
-#define OPENGL_ES3 1
+#define OPENGL_ES2 1
+//#define OPENGL_ES3 1
 
 #include <wayland-client.h>
 #include <wayland-egl.h>
@@ -19,6 +19,14 @@
 #define FILENAME "gles-1-info.log"
 #endif
 
+#ifndef MAJOR_VERSION
+#define MAJOR_VERSION 1
+#endif
+
+#ifndef MINOR_VERSION
+#define MINOR_VERSION 0
+#endif
+
 #endif
 
 #ifdef OPENGL_ES2
@@ -33,6 +41,14 @@
 #define FILENAME "gles-2-info.log"
 #endif
 
+#ifndef MAJOR_VERSION
+#define MAJOR_VERSION 2
+#endif
+
+#ifndef MINOR_VERSION
+#define MINOR_VERSION 0
+#endif
+
 #endif
 
 #ifdef OPENGL_ES3
@@ -45,6 +61,14 @@
 
 #ifndef FILENAME
 #define FILENAME "gles-3-info.log"
+#endif
+
+#ifndef MAJOR_VERSION
+#define MAJOR_VERSION 3
+#endif
+
+#ifndef MINOR_VERSION
+#define MINOR_VERSION 0
 #endif
 
 #endif
@@ -117,7 +141,8 @@ int main( int* argc, int* argv[] )
     };
 
     EGLint const context_attribs [] = {
-        EGL_CONTEXT_CLIENT_VERSION, 2,
+        EGL_CONTEXT_MAJOR_VERSION, MAJOR_VERSION,
+        EGL_CONTEXT_MINOR_VERSION, MINOR_VERSION,
         EGL_NONE
     };
 
