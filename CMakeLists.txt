@@ -33,6 +33,16 @@ set(XDG_PROTOCOL_SRCS xdg-shell-protocol.c)
 
 ##########
 
+add_executable(SampleServer sample_server.c ${XDG_PROTOCOL_SRCS}) 
+target_include_directories(SampleServer     PUBLIC              $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
+                                                                $<BUILD_INTERFACE:${Wayland_Server_INCLUDE_DIR}>
+                                                                )
+target_link_libraries(SampleServer PUBLIC ${Wayland_Server_LIBRARY})
+
+##########
+
+##########
+
 add_executable(SampleClient sample_client.c)
 target_include_directories(SampleClient     PUBLIC              $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
                                                                 $<BUILD_INTERFACE:${Wayland_Client_INCLUDE_DIR}>
