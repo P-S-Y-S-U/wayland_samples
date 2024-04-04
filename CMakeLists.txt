@@ -150,5 +150,5 @@ target_include_directories(AntiAliasing PUBLIC                      $<BUILD_INTE
                                                                     $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
                                                                     $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )
-target_link_libraries(AntiAliasing PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} cglm::cglm m)
+target_link_libraries(AntiAliasing PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} cglm::cglm m)
 
