@@ -10,6 +10,12 @@ find_package(Rt REQUIRED)
 find_package(Wayland REQUIRED)
 find_package(EGL REQUIRED)
 find_package(GLES2 REQUIRED)
+if(BUILD_FOR_ARM)
+    find_package(Mali REQUIRED)
+    set(RENDERER_LIBRARY ${MALI_LIBRARY})
+else()
+    set(RENDERER_LIBRARY ${EGL_LIBRARY} ${GLES2_LIBRARY})
+endif()
 
 # CMAKE C & CXX FLAGS SETUP
 
@@ -87,7 +93,7 @@ add_executable(EGLInfo egl_info.c)
 target_include_directories(EGLInfo  PUBLIC                      $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
                                                                 $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )
-target_link_libraries(EGLInfo PUBLIC ${EGL_LIBRARY})
+target_link_libraries(EGLInfo PUBLIC ${RENDERER_LIBRARY})
 
 add_executable(GLInfo gl_info.c)
 target_include_directories(GLInfo  PUBLIC                   $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
@@ -95,7 +101,7 @@ target_include_directories(GLInfo  PUBLIC                   $<BUILD_INTERFACE:${
                                                             $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
                                                             $<BUILD_INTERFACE:${Wayland_Client_INCLUDE_DIR}>
                                                             )
-target_link_libraries(GLInfo PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY}) 
+target_link_libraries(GLInfo PUBLIC ${RENDERER_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY}) 
 ##########
 
 add_executable(EGLSample egl_sample.c ${XDG_PROTOCOL_SRCS})
@@ -105,7 +111,7 @@ target_include_directories(EGLSample  PUBLIC                    $<BUILD_INTERFAC
                                                                 $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
                                                                 $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )
-target_link_libraries(EGLSample PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
+target_link_libraries(EGLSample PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
 
 ##########
 
@@ -116,7 +122,7 @@ target_include_directories(EGLClient PUBLIC                     $<BUILD_INTERFAC
                                                                 $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
                                                                 $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )
-target_link_libraries(EGLClient PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
+target_link_libraries(EGLClient PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
 
 add_executable(PBOSample pbo_sample.c ${XDG_PROTOCOL_SRCS})
 target_include_directories(PBOSample PUBLIC                     $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
@@ -125,7 +131,7 @@ target_include_directories(PBOSample PUBLIC                     $<BUILD_INTERFAC
                                                                 $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
                                                                 $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )
-target_link_libraries(PBOSample PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
+target_link_libraries(PBOSample PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
 
 add_executable(TexReaderSample tex_reader_sample.c ${XDG_PROTOCOL_SRCS})
 target_include_directories(TexReaderSample PUBLIC                     $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
@@ -134,4 +140,4 @@ target_include_directories(TexReaderSample PUBLIC                     $<BUILD_IN
                                                                 $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
                                                                 $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )
-target_link_libraries(TexReaderSample PUBLIC ${EGL_LIBRARY} ${GLES2_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
+target_link_libraries(TexReaderSample PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
