@@ -2,8 +2,6 @@
 #define MSAA_SAMPLES 16
 //#define ENABLE_MSAA
 
-#define IMAGE_FILE_PATH "./Text_Sample.png"
-
 #include "egl_common.h"
 #include "client_common.h"
 #include "xdg_client_common.h"
@@ -41,8 +39,6 @@ static struct Mesh* pQuadMesh = NULL;
 static clock_t simulation_start;
 
 static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC glFramebufferTexture2DMultisampleEXT = NULL;
-static PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT = NULL;
-static PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV = NULL;
 
 static void wl_buffer_release( void* pData, struct wl_buffer* pWlBuffer );
 
@@ -95,7 +91,6 @@ struct ClientObjState
 
     struct GlState{
         GLuint ibo;
-        GLuint texture;
 
 		GLuint msaaFBO;
 		GLuint msaaTexture;
@@ -220,18 +215,8 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		pTriangleMesh->vertex_positions, pTriangleMesh->vertex_texcoords, pTriangleMesh->vertex_colors
 	);
 
-#if 0
-	glBindFramebuffer(GL_READ_FRAMEBUFFER_NV, pClientObj->mGlState.msaaFBO);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER_NV, 0);
-	glBlitFramebufferNV( 
-		0, 0, surfaceWidth, surfaceHeight,
-		0, 0, surfaceWidth, surfaceHeight,
-		GL_COLOR_BUFFER_BIT,
-		GL_NEAREST
-	);
-#else
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-#endif
+
 	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if( status != GL_FRAMEBUFFER_COMPLETE )
 	{
@@ -412,20 +397,6 @@ static void InitGLState( struct GlState* pGLState )
 		printf("Failed to get func pointer to glFramebufferTexture2DMultisampleIMG\n");
 	}
 
-	glDiscardFramebufferEXT = (PFNGLDISCARDFRAMEBUFFEREXTPROC) eglGetProcAddress( "glDiscardFramebufferEXT" );
-
-	if( !glDiscardFramebufferEXT )
-	{
-		printf("Failed to get func pointer to glFramebufferTexture2DMultisampleIMG\n");
-	}
-
-	glBlitFramebufferNV = (PFNGLBLITFRAMEBUFFERNVPROC) eglGetProcAddress( "glBlitFramebufferNV" );
-
-	if( !glBlitFramebufferNV )
-	{
-		printf("Failed to get func pointer to glBlitFramebufferNV\n");
-	}
-
 	pGLState->vertexcolorPipeline.gpuprogram = createGPUProgram(
 		vertex_color_vertex_shader_text, vertex_color_frag_shader_text
 	);
@@ -467,33 +438,6 @@ static void InitGLState( struct GlState* pGLState )
 
 
     glGenBuffers( 1, &pGLState->ibo );
-
-    int texWidth, texHeight, channels;
-
-    stbi_set_flip_vertically_on_load(1);
-
-    uint8_t* imgData = stbi_load(
-        IMAGE_FILE_PATH, &texWidth, &texHeight, &channels, STBI_rgb_alpha
-    );
-
-    glGenTextures( 1, &pGLState->texture );
-    glBindTexture(GL_TEXTURE_2D, pGLState->texture);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexImage2D(
-        GL_TEXTURE_2D, 0, 
-        GL_RGBA, 
-        texWidth, texHeight, 0, 
-        GL_RGBA, 
-        GL_UNSIGNED_BYTE,
-        imgData
-    );
-
-    glCheckError();
-
-    stbi_image_free(imgData);
 }
 
 static void SetupFBO( 
@@ -651,8 +595,6 @@ int main( int argc, const char* argv[] )
     clientObjState.mpXdgTopLevel = xdg_surface_get_toplevel( clientObjState.mpXdgSurface );
 	AssignXDGToplevelListener(clientObjState.mpXdgTopLevel, &clientObjState);
     xdg_toplevel_set_title(clientObjState.mpXdgTopLevel, surfaceTitle);
-	//xdg_toplevel_handle_configure( &clientObjState, clientObjState.mpXdgTopLevel, surfaceWidth, surfaceHeight, NULL );
-	//xdg_toplevel_set_fullscreen( clientObjState.mpXdgTopLevel, clientObjState.mpGlobalObjState->mpOutput );
 	
 	struct wl_callback* configureCallback;
 
