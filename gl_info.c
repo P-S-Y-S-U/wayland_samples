@@ -104,6 +104,11 @@ int main( int* argc, int* argv[] )
 {
     wlDisplay = wl_display_connect(NULL);
 
+    if(!wlDisplay)
+    {
+        printf("Failed to Connect to Wayland Display\n");
+    }
+
     struct wl_registry* pRegistry = wl_display_get_registry(wlDisplay);
     wl_registry_add_listener(pRegistry, &g_registryListener, NULL);
 
