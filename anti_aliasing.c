@@ -17,12 +17,12 @@
 #include <cglm/cglm.h>
 #include <cglm/mat4.h>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 
 #include "shaders.h"
 #include "mesh.h"
 #include "gldebug.h"
+#include "utils.h"
 
 struct ClientObjState;
 struct GlState;
@@ -37,6 +37,13 @@ static struct Mesh* pTriangleMesh = NULL;
 static struct Mesh* pQuadMesh = NULL;
 
 static clock_t simulation_start;
+
+void* pixelDump = NULL;
+size_t pixelDumpSizeInBytes;
+const uint16_t bytespp = 4;
+uint8_t initialFrameCallbackDone = 0;
+uint8_t SurfacePresented = 0;
+uint8_t imgReadJob = 0;
 
 static PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC glFramebufferTexture2DMultisampleEXT = NULL;
 
@@ -139,8 +146,32 @@ static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallbac
 	if( !pClientObjState->mbSurfaceConfigured )
 		return;
 
+	if( imgReadJob )
+		pClientObjState->mbCloseApplication = 1;
+
     UpdateUniforms( pClientObjState );
 	recordGlCommands( pClientObjState, time );
+
+	if( initialFrameCallbackDone && !imgReadJob )
+	{
+		SurfacePresented = 1;
+		
+		imgReadJob = DownloadPixelsFromGPU(
+			DEFAULT_FRAME_BUFFER,
+			FBO,
+			0, 0,
+			surfaceWidth, surfaceHeight,
+			-1,
+			GL_RGBA,
+			0,
+			bytespp,
+			pixelDump, pixelDumpSizeInBytes
+		);
+	}
+	else
+	{
+		initialFrameCallbackDone = 1;
+	}
 
 	pClientObjState->mpFrameCallback = wl_surface_frame( pClientObjState->mpWlSurface );
 	wl_callback_add_listener( pClientObjState->mpFrameCallback, &frame_listener, pClientObjState );
@@ -603,6 +634,9 @@ int main( int argc, const char* argv[] )
 
 	clientObjState.mbCloseApplication = 0;
 
+	pixelDumpSizeInBytes = surfaceWidth * surfaceHeight * bytespp;
+	pixelDump = malloc( pixelDumpSizeInBytes );
+
 	simulation_start = clock();
 
     while( clientObjState.mbCloseApplication != 1 )
@@ -610,6 +644,13 @@ int main( int argc, const char* argv[] )
 		wl_display_dispatch(pDisplay);
     }
 
+	WritePixelsToFile(
+		"Antialiasing.png",
+		surfaceWidth, surfaceHeight,
+		4,
+		pixelDump
+	);
+	
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
     glDeleteBuffers( 1, &clientObjState.mGlState.ibo );
 

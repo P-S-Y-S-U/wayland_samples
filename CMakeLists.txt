@@ -143,7 +143,7 @@ target_include_directories(TexReaderSample PUBLIC                     $<BUILD_IN
                                                                 )
 target_link_libraries(TexReaderSample PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY})
 
-add_executable(AntiAliasing anti_aliasing.c ${XDG_PROTOCOL_SRCS})
+add_executable(AntiAliasing anti_aliasing.c ${XDG_PROTOCOL_SRCS} )
 target_include_directories(AntiAliasing PUBLIC                      $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
                                                                     $<BUILD_INTERFACE:${Wayland_Client_INCLUDE_DIR}>
                                                                     $<BUILD_INTERFACE:${Wayland_Egl_INCLUDE_DIR}>
