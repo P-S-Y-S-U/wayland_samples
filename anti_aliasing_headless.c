@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
-#include <QImage>
 
 #include <cglm/cglm.h>
 #include <cglm/mat4.h>
@@ -123,7 +122,7 @@ static void updateFrame_callback( void* pData, uint32_t time )
 			0, 0,
 			surfaceWidth, surfaceHeight,
 			-1,
-			GL_BGRA_EXT,
+			GL_RGBA,
 			0,
 			bytespp,
 			pixelDump, pixelDumpSizeInBytes
