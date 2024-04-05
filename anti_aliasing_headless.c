@@ -7,6 +7,7 @@
 
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
@@ -28,7 +29,7 @@ struct GfxPipeline;
 static uint32_t startTime = 0;
 static uint16_t surfaceWidth = 1920;
 static uint16_t surfaceHeight = 1080;
-static uint32_t numOfMSAAsamples = MSAA_SAMPLES;
+static uint32_t numOfMSAAsamples = 0;
 
 static struct Mesh* pTriangleMesh = NULL;
 static struct Mesh* pQuadMesh = NULL;
@@ -469,6 +470,15 @@ int main( int argc, const char* argv[] )
 {
     struct wl_display* pDisplay = NULL;
 
+    if(argc > 1)
+    {
+        numOfMSAAsamples = atoi( argv[1] );
+    }
+    else
+    {
+        numOfMSAAsamples = MSAA_SAMPLES;
+    }
+
     struct ClientObjState clientObjState = {0};
 	clientObjState.mpEglContext.mNativeDisplay = pDisplay;
 
@@ -502,8 +512,14 @@ int main( int argc, const char* argv[] )
         updateFrame_callback( &clientObjState, 0 );
     }
 
+    char samplesStr[10];
+    sprintf(samplesStr, "%d", numOfMSAAsamples);
+    const char* file = "Antialiasing";
+    const char* extension = ".png";
+    char fullFileName[125];
+    sprintf(fullFileName, "%s-%s%s", file, samplesStr, extension);
 	WritePixelsToFile(
-		"Antialiasing.png",
+		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
 		pixelDump
