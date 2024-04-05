@@ -484,7 +484,16 @@ int main( int argc, const char* argv[] )
 
 	InitEGLContext( &clientObjState.mpEglContext );
 	
-	const char* surfaceTitle = "EGL Client";
+	const char* surfaceTitle = "EGL Client";	
+#if 0
+	EGLint param;
+	eglGetConfigAttrib( clientObjState.mpEglContext.mEglDisplay, clientObjState.mpEglContext.mEglConfig, EGL_MAX_PBUFFER_WIDTH, &param );
+	surfaceWidth = param / 2;
+	eglGetConfigAttrib( clientObjState.mpEglContext.mEglDisplay, clientObjState.mpEglContext.mEglConfig, EGL_MAX_PBUFFER_HEIGHT, &param );
+	surfaceHeight = param / 2;
+#endif
+
+	printf("Creating Surface with dimensions %d x %d\n", surfaceWidth, surfaceHeight);
 
 	CreateEGLSurface( surfaceWidth, surfaceHeight, &clientObjState.mpEglContext );
 	InitGLState( &clientObjState.mGlState );
@@ -492,7 +501,7 @@ int main( int argc, const char* argv[] )
 		&clientObjState.mGlState.msaaFBO,
 		&clientObjState.mGlState.msaaTexture,
 		GL_RGBA,
-		GL_UNSIGNED_SHORT_4_4_4_4,
+		GL_UNSIGNED_BYTE,
 		numOfMSAAsamples
 	);
 	pTriangleMesh = malloc(sizeof(struct Mesh));
