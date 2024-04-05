@@ -158,9 +158,7 @@ target_include_directories(AntiAliasingHeadless PUBLIC                      $<BU
                                                                             $<BUILD_INTERFACE:${Wayland_Egl_INCLUDE_DIR}>
                                                                             $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
                                                                             $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
-                                                                            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/Qt>
-                                                                            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/QtGui>
                                                                 )
 target_compile_definitions(AntiAliasingHeadless PUBLIC WAYLAND_HEADLESS)                                                           
-target_link_libraries(AntiAliasingHeadless PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} cglm::cglm m ${PROJECT_SOURCE_DIR}/Qt/libQt5Gui.so.5.12.12)
+target_link_libraries(AntiAliasingHeadless PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} cglm::cglm m)
 
