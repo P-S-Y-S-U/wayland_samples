@@ -152,3 +152,13 @@ target_include_directories(AntiAliasing PUBLIC                      $<BUILD_INTE
                                                                 )
 target_link_libraries(AntiAliasing PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} cglm::cglm m)
 
+add_executable(AntiAliasingHeadless anti_aliasing_headless.c)
+target_include_directories(AntiAliasingHeadless PUBLIC                      $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
+                                                                            $<BUILD_INTERFACE:${Wayland_Client_INCLUDE_DIR}>
+                                                                            $<BUILD_INTERFACE:${Wayland_Egl_INCLUDE_DIR}>
+                                                                            $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
+                                                                            $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
+                                                                )
+target_compile_definitions(AntiAliasingHeadless PUBLIC WAYLAND_HEADLESS)                                                           
+target_link_libraries(AntiAliasingHeadless PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} cglm::cglm m)
+

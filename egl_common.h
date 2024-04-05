@@ -11,7 +11,13 @@
 #include <EGL/egl.h>
 #include <EGL/eglplatform.h>
 
+#ifndef WAYLAND_HEADLESS
 #include "xdg-shell-client-protocol.h"
+#define SURFACE_TYPE EGL_WINDOW_BIT
+#else
+#define SURFACE_TYPE EGL_PBUFFER_BIT
+#endif
+
 #include "egl_desc.h"
 
 #ifndef RENDERING_API
@@ -38,18 +44,26 @@ struct eglContext
 };
 
 void InitEGLContext( struct eglContext* pEglContext );
-void CreateEGLSurface( 
+void CreateEGLSurface(
+#ifndef WAYLAND_HEADLESS
     struct wl_surface* pWlSurface, 
+#endif
     uint16_t windowWidth, uint16_t windowHeight,
     struct eglContext* pEglContext 
 );
 
+#ifndef WAYLAND_HEADLESS
 void ShutdownEGLContext( 
-    struct eglContext* pEglContext, 
+    struct eglContext* pEglContext,
     struct xdg_toplevel* pXdgTopLevel, 
     struct xdg_surface* pXdgSurface, 
-    struct wl_surface* pWlSurface 
+    struct wl_surface* pWlSurface
 );
+#else
+void ShutdownEGLContext( 
+    struct eglContext* pEglContext
+);
+#endif
 
 void SwapEGLBuffers( struct eglContext* pEglContext );
 
@@ -77,7 +91,7 @@ void InitEGLContext( struct eglContext* pEglContext )
     }
 
     EGLint const attribute_list[] = {
-        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+        EGL_SURFACE_TYPE, SURFACE_TYPE,
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
         EGL_BLUE_SIZE, 8,
@@ -123,14 +137,17 @@ void InitEGLContext( struct eglContext* pEglContext )
     LogEGLConfig( eglDisplay, eglConfig );
 }
 
-void CreateEGLSurface( 
+void CreateEGLSurface(
+#ifndef WAYLAND_HEADLESS 
     struct wl_surface* pWlSurface, 
+#endif
     uint16_t windowWidth, uint16_t windowHeight,
     struct eglContext* pEglContext 
 )
 {
     EGLint result;
 
+#ifndef WAYLAND_HEADLESS
     EGLNativeWindowType eglNativeWindow = wl_egl_window_create( pWlSurface, windowWidth, windowHeight );
     EGLSurface eglSurface = eglCreateWindowSurface( 
         pEglContext->mEglDisplay, 
@@ -139,12 +156,26 @@ void CreateEGLSurface(
         NULL 
     );
 
+    pEglContext->mNativeWindow = eglNativeWindow;
+#else
+    EGLint surface_attrib[] = {
+        EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_LINEAR,
+        EGL_WIDTH, windowWidth,
+        EGL_HEIGHT, windowHeight,
+        EGL_NONE
+    };
+
+    EGLSurface eglSurface = eglCreatePbufferSurface(
+        pEglContext->mEglDisplay,
+        pEglContext->mEglConfig,
+        surface_attrib
+    );
+#endif
     if( eglSurface == EGL_NO_SURFACE )
     {
         printf("Failed to Create EGL Surface\n");
     }
 
-    pEglContext->mNativeWindow = eglNativeWindow;
     pEglContext->mEglSurface = eglSurface;
 
     result = eglMakeCurrent( pEglContext->mEglDisplay, eglSurface, eglSurface, pEglContext->mEglContext );
@@ -156,8 +187,9 @@ void CreateEGLSurface(
     LogRenderBufferInternals();
 }
 
+#ifndef WAYLAND_HEADLESS
 void ShutdownEGLContext( 
-    struct eglContext* pEglContext, 
+    struct eglContext* pEglContext,
     struct xdg_toplevel* pXdgTopLevel, 
     struct xdg_surface* pXdgSurface, 
     struct wl_surface* pWlSurface 
@@ -170,6 +202,15 @@ void ShutdownEGLContext(
     wl_surface_destroy( pWlSurface );
     eglDestroyContext( pEglContext->mEglDisplay, pEglContext->mEglContext );
 }
+#else 
+void ShutdownEGLContext( 
+    struct eglContext* pEglContext
+)
+{
+    eglDestroySurface( pEglContext->mEglDisplay, pEglContext->mEglSurface );
+    eglDestroyContext( pEglContext->mEglDisplay, pEglContext->mEglContext );
+}
+#endif
 
 void SwapEGLBuffers( struct eglContext* pEglContext )
 {
