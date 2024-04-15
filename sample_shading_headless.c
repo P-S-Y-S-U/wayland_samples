@@ -17,6 +17,7 @@
 #include <cglm/mat4.h>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
 
 #include "shaders.h"
 #include "mesh.h"
@@ -33,6 +34,9 @@ static uint16_t surfaceHeight = 1080;
 static uint32_t numOfMSAAsamples = 0;
 static float minSampleShadingValue = 0.0f;
 static char texFileName[150];
+
+static int texWidth;
+static int texHeight;
 
 static struct Mesh* pTriangleMesh = NULL;
 static struct Mesh* pQuadMesh = NULL;
@@ -92,6 +96,7 @@ struct ClientObjState
 
     struct GlState{
         GLuint ibo;
+		GLuint texture;
 
 		GLuint msaaFBO;
 		GLuint msaaTexture;
@@ -203,9 +208,12 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
 	}
 
-	drawTriangle( 
+	drawQuad( 
 		pClientObj, time,
-		pTriangleMesh->vertex_positions, pTriangleMesh->vertex_texcoords, pTriangleMesh->vertex_colors
+		0.0, 0.0, 0.0, 1.0,
+		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
+		pQuadMesh->indices,
+		pClientObj->mGlState.texture
 	);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -426,6 +434,13 @@ static void InitGLState( struct GlState* pGLState )
 
 
     glGenBuffers( 1, &pGLState->ibo );
+
+	GenerateTextureFromImage(
+		texFileName,
+		&texWidth, &texHeight,
+		&pGLState->texture,
+		GL_LINEAR, GL_LINEAR
+	);
 
     GLboolean bParam;
     GLfloat fParam;

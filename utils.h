@@ -6,7 +6,37 @@
 #ifndef STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #endif
-#include "stb/stb_image_write.h"
+
+#ifndef STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#endif
+
+#include <stb/stb_image_write.h>
+#include <stb/stb_image.h>
+
+#include <GLES2/gl2.h>
+
+static int16_t LoadPixelsFromFile(
+    const char* filePath,
+    int* imgWidth, int* imgHeight,
+    int* numOfChannels,
+    uint8_t* imgData
+)
+{
+    stbi_set_flip_vertically_on_load(1);
+
+    imgData = stbi_load(
+        filePath,
+        imgWidth, imgHeight,
+        numOfChannels,
+        STBI_rgb_alpha
+    );
+
+    if( !imgData )
+        return 0;
+    else
+        return 1;
+}
 
 static int16_t WritePixelsToFile(
     const char* filename,
@@ -15,6 +45,8 @@ static int16_t WritePixelsToFile(
     const void* pixelData   
 )
 {
+    stbi_flip_vertically_on_write(1);
+
     int16_t reslt = 0;
     if( !pixelData )
         printf("Pixel Not Dumped\n");
@@ -32,6 +64,42 @@ static int16_t WritePixelsToFile(
     }
 
     return reslt;
+}
+
+static void GenerateTextureFromImage(
+    const char* filename,
+    int* imgWidth, int* imgHeight,
+    GLuint* texture,
+    GLuint minFilter, GLuint magFilter
+)
+{
+    int numOfChannels = 0;
+    uint8_t* imgData = NULL;
+
+    LoadPixelsFromFile(
+        filename, 
+        imgWidth, imgHeight,
+        &numOfChannels,
+        imgData
+    );
+
+    glGenTextures( 1, texture);
+    glBindTexture( GL_TEXTURE_2D, *texture );
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+
+    glTexImage2D(
+        GL_TEXTURE_2D, 0,
+        GL_RGBA,
+        *imgWidth, *imgHeight,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        imgData
+    );
+
+    stbi_image_free(imgData);
 }
 
 static uint32_t uiClamp( uint32_t value, uint32_t min, uint32_t max ){
