@@ -34,4 +34,19 @@ static int16_t WritePixelsToFile(
     return reslt;
 }
 
+static uint32_t uiClamp( uint32_t value, uint32_t min, uint32_t max ){
+    const uint32_t t = t < min ? min : value;
+    return t > max ? max : t;
+};
+
+static int iClamp( int value, int min, int max ){
+    const int t = t < min ? min : value;
+    return t > max ? max : t;
+};
+
+static float fClamp( float value, float min, float max ){
+    const float t = t < min ? min : value;
+    return t > max ? max : t;
+};
+
 #endif 
