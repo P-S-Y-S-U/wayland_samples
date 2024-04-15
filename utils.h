@@ -16,26 +16,20 @@
 
 #include <GLES2/gl2.h>
 
-static int16_t LoadPixelsFromFile(
+static uint8_t* LoadPixelsFromFile(
     const char* filePath,
     int* imgWidth, int* imgHeight,
-    int* numOfChannels,
-    uint8_t* imgData
+    int* numOfChannels
 )
 {
     stbi_set_flip_vertically_on_load(1);
 
-    imgData = stbi_load(
+    return stbi_load(
         filePath,
         imgWidth, imgHeight,
         numOfChannels,
         STBI_rgb_alpha
     );
-
-    if( !imgData )
-        return 0;
-    else
-        return 1;
 }
 
 static int16_t WritePixelsToFile(
@@ -74,15 +68,11 @@ static void GenerateTextureFromImage(
 )
 {
     int numOfChannels = 0;
-    uint8_t* imgData = NULL;
-
-    LoadPixelsFromFile(
+    uint8_t* imgData = LoadPixelsFromFile(
         filename, 
         imgWidth, imgHeight,
-        &numOfChannels,
-        imgData
+        &numOfChannels
     );
-
     glGenTextures( 1, texture);
     glBindTexture( GL_TEXTURE_2D, *texture );
 
