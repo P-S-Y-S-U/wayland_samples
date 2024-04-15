@@ -33,7 +33,7 @@ static uint16_t surfaceWidth = 1920;
 static uint16_t surfaceHeight = 1080;
 static uint32_t numOfMSAAsamples = 0;
 static float minSampleShadingValue = 0.0f;
-static char texFileName[150];
+static char texFileName[256];
 
 static int texWidth;
 static int texHeight;
@@ -521,8 +521,10 @@ int main( int argc, const char* argv[] )
     }
     else
     {
-        strBytes = sizeof( argv[1] );
+        strBytes = strlen(argv[1]);
+		printf("Bytes : %d\n", strBytes);
         memcpy(texFileName, argv[1], strBytes );
+		printf("%s %s\n", texFileName, argv[1]);
         if( argc > 3 )
         {
             numOfMSAAsamples = atoi( argv[2] );
@@ -574,8 +576,8 @@ int main( int argc, const char* argv[] )
 	pixelDumpSizeInBytes = surfaceWidth * surfaceHeight * bytespp;
 	pixelDump = malloc( pixelDumpSizeInBytes );
 
+	printf("Loaded Texture from %s : Dimensions %d x %d\n", texFileName, texWidth, texHeight);
     printf("Rendering With MSAA %dx with %ff min sample shading\n", numOfMSAAsamples, minSampleShadingValue);
-
 	simulation_start = clock();
 
     while( clientObjState.mbCloseApplication != 1 )
