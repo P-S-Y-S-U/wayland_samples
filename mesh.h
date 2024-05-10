@@ -81,11 +81,11 @@ static void GetQuadMesh( struct Mesh* pMesh )
     pMesh->vertex_texcoords[2] = 0.0;
     pMesh->vertex_texcoords[3] = 0.0;
 
-    pMesh->vertex_texcoords[4] = 1.0;
+    pMesh->vertex_texcoords[4] = 1.5;
     pMesh->vertex_texcoords[5] = 0.0;
 
-    pMesh->vertex_texcoords[6] = 1.0;
-    pMesh->vertex_texcoords[7] = 1.0;
+    pMesh->vertex_texcoords[6] = 1.5;
+    pMesh->vertex_texcoords[7] = 1.5;
 
     // indices
     pMesh->indices[0] = 0;
