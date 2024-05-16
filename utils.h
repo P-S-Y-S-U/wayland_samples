@@ -2,14 +2,11 @@
 #define UTILS_H
 
 #include <stdint.h>
+#include <stdio.h>
+#include <stddef.h>
+#include <stdlib.h>
 
-#ifndef STB_IMAGE_WRITE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#endif
-
-#ifndef STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#endif
+#if defined STB_IMAGE_IMPLEMENTATION || STB_IMAGE_WRITE_IMPLEMENTATION
 
 #include <stb/stb_image_write.h>
 #include <stb/stb_image.h>
@@ -59,7 +56,13 @@ static int16_t WritePixelsToFile(
 
     return reslt;
 }
+    const GLfloat borderColor[4] = {
+        1.0, 0.0, 0.0, 1.0
+    };
 
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR_EXT, borderColor);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER_EXT );
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER_EXT );
 static void GenerateTextureFromImage(
     const char* filename,
     int* imgWidth, int* imgHeight,
@@ -90,6 +93,41 @@ static void GenerateTextureFromImage(
     );
 
     stbi_image_free(imgData);
+}
+#endif
+
+static void ReadFileContentsToCpuBuffer(
+    const char* filename,
+    char** pCpubuffer,
+    size_t* bufferSize
+)
+{
+    FILE* fp = fopen( filename, "rb" );
+
+    if( !fp )
+        return;
+
+    fseek( fp, 0L, SEEK_END );
+    *bufferSize = ftell(fp);
+    rewind(fp);
+
+    *pCpubuffer = calloc( 1, *bufferSize+1 );
+    if(!*pCpubuffer)
+    {
+        fclose(fp);
+        printf("Memory Alloc for Reading File Fails\n");
+        return;
+    }
+
+    if( fread(*pCpubuffer, *bufferSize, 1, fp) != 1 )
+    {
+        printf("Fails to Read File Contents\n");
+        fclose(fp);
+        free(*pCpubuffer);
+        return;
+    }
+
+    fclose(fp);
 }
 
 static uint32_t uiClamp( uint32_t value, uint32_t min, uint32_t max ){
