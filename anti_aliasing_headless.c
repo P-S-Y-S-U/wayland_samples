@@ -15,6 +15,7 @@
 #include <cglm/cglm.h>
 #include <cglm/mat4.h>
 
+#define USE_STB
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 
 #include "shaders.h"
