@@ -28,12 +28,15 @@ set(PROJECT_ARCHIVE "lib/static")
 set(PROJECT_INSTALL ${CMAKE_INSTALL_PREFIX})
 set(PROJECT_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/include")
 list(APPEND PROJECT_INCLUDE_DIR "${CMAKE_PREFIX_PATH}/include")
+set(MEDIA_DIR ${PROJECT_SOURCE_DIR}/media)
+
 # PROJECT CMAKE SCRIPT REQUIREMENTS (Dependencies cmake script)#
 
 # CONAN SETUP #
 
 # Additional cmake scripts in sub-directory #
 
+add_subdirectory(media)
 
 set(XDG_PROTOCOL_SRCS xdg-shell-protocol.c)
 
