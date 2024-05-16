@@ -6,7 +6,15 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#if defined STB_IMAGE_IMPLEMENTATION || STB_IMAGE_WRITE_IMPLEMENTATION
+#if defined USE_STB
+
+#ifndef STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#endif
+
+#ifndef STB_IMAGE_WRITE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#endif
 
 #include <stb/stb_image_write.h>
 #include <stb/stb_image.h>
@@ -56,13 +64,7 @@ static int16_t WritePixelsToFile(
 
     return reslt;
 }
-    const GLfloat borderColor[4] = {
-        1.0, 0.0, 0.0, 1.0
-    };
 
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR_EXT, borderColor);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER_EXT );
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER_EXT );
 static void GenerateTextureFromImage(
     const char* filename,
     int* imgWidth, int* imgHeight,
