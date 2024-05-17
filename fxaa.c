@@ -67,6 +67,13 @@ static void drawQuad(
 	const void* indices,
 	GLuint textureToUse
 );
+static void drawFXAAPass(
+	struct ClientObjState* pClientObj, uint32_t time,
+	const void* position, const void* texcoords, const void* colors,
+	const void* indices,
+	GLuint textureToUse
+);
+
 #ifndef WAYLAND_HEADLESS
 static void surface_configure_callback( void * pData, struct wl_callback* pCallback, uint32_t time );
 #endif
@@ -84,6 +91,7 @@ struct GfxPipeline{
 	GLuint gpuprogram;
 	GLuint mvp_unifrom;
 	GLuint texSampler_uniform;
+	GLuint inverseScreenSize_uniform;
 	GLuint position_attribute;
 	GLuint texcoord_attribute;
 	GLuint color_attribute;
@@ -110,13 +118,19 @@ struct ClientObjState
 		GLuint sceneFBO;
 		GLuint sceneTexture;
 		
+		GLuint fxaaFBO;
+		GLuint fxaaTexture;
+
 		struct GfxPipeline vertexcolorPipeline;
 		struct GfxPipeline renderToQuadPipeline;
+		struct GfxPipeline fxaaPipeline;
     }mGlState;
 
     struct Uniforms{
         mat4 mvp;
 		mat4 quadIdentityModelViewProj;
+		int	screenTexture;
+		vec2 inverseScreenSize; 
     }mUniforms;
 };
 
@@ -311,6 +325,9 @@ static void UpdateUniforms( struct ClientObjState* pClientObj )
 
 	glm_mat4_mul( projection, view, pClientObj->mUniforms.mvp );
 	glm_mat4_mul( pClientObj->mUniforms.mvp, model, pClientObj->mUniforms.mvp );
+
+	pClientObj->mUniforms.inverseScreenSize[0] = ( 1.0 / (float) surfaceWidth );
+	pClientObj->mUniforms.inverseScreenSize[1] = ( 1.0 / (float) surfaceHeight );
 }
 
 static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
@@ -332,6 +349,20 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		pTriangleMesh->vertex_positions, pTriangleMesh->vertex_texcoords, pTriangleMesh->vertex_colors
 	);
 
+	glBindFramebuffer(GL_FRAMEBUFFER, pClientObj->mGlState.fxaaFBO);
+
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if( status != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
+	}
+	drawFXAAPass( 
+		pClientObj, time,
+		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
+		pQuadMesh->indices,
+		pClientObj->mGlState.sceneTexture
+	);
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -344,7 +375,7 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		0.0, 0.0, 0.0, 1.0,
 		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
 		pQuadMesh->indices,
-		pClientObj->mGlState.sceneTexture
+		pClientObj->mGlState.fxaaTexture
 	);
 }
 
@@ -491,6 +522,94 @@ static void drawQuad(
     	glDisableVertexAttribArray(pGfxPipeline->color_attribute);
 }
 
+static void drawFXAAPass(
+	struct ClientObjState* pClientObj, uint32_t time,
+	const void* position, const void* texcoords, const void* colors,
+	const void* indices,
+	GLuint textureToUse
+)
+{
+
+	struct eglContext* pEglContext = &pClientObj->mpEglContext;
+    struct GlState* pGlState = &pClientObj->mGlState;
+	struct GfxPipeline* pGfxPipeline = &pClientObj->mGlState.fxaaPipeline;
+
+	glViewport(0, 0, surfaceWidth, surfaceHeight );
+
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glUseProgram(pGfxPipeline->gpuprogram);
+
+	glUniformMatrix4fv(
+        pGfxPipeline->mvp_unifrom, 1, GL_FALSE,
+        (GLfloat*) pClientObj->mUniforms.quadIdentityModelViewProj 
+    );
+    glUniform1i( pGfxPipeline->texSampler_uniform, 0 );
+	glUniform2fv( pGfxPipeline->inverseScreenSize_uniform, 1,
+		(GLfloat*) pClientObj->mUniforms.inverseScreenSize
+	);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureToUse);
+
+    glVertexAttribPointer(
+        pGfxPipeline->position_attribute,
+        2, GL_FLOAT, GL_FALSE,
+        0,
+        position
+    );
+	glEnableVertexAttribArray(pGfxPipeline->position_attribute);
+	if( texcoords )
+	{
+    	glVertexAttribPointer(
+    	    pGfxPipeline->texcoord_attribute,
+    	    2, GL_FLOAT, GL_FALSE,
+    	    0,
+    	    texcoords
+    	);
+		glEnableVertexAttribArray(pGfxPipeline->texcoord_attribute);
+	}
+	if( colors )
+	{
+    	glVertexAttribPointer(
+    	    pGfxPipeline->color_attribute,
+    	    3, GL_FLOAT, GL_FALSE,
+    	    0,
+    	    colors
+    	);
+		glEnableVertexAttribArray(pGfxPipeline->color_attribute);
+	}
+
+	if( indices )
+	{
+    	glBindBuffer(
+    	    GL_ELEMENT_ARRAY_BUFFER, pGlState->ibo
+    	);
+    	glBufferData(
+    	    GL_ELEMENT_ARRAY_BUFFER,
+    	    6 * sizeof(uint16_t),
+    	    indices,
+    	    GL_STATIC_DRAW
+    	);
+	}
+
+    glDrawElements(
+        GL_TRIANGLES, 6,
+        GL_UNSIGNED_SHORT,
+        0
+    );
+
+    glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
+	//glBindTexture(GL_TEXTURE_2D, 0);
+
+    glDisableVertexAttribArray(pGfxPipeline->position_attribute);
+	if(texcoords)
+    	glDisableVertexAttribArray(pGfxPipeline->texcoord_attribute);
+	if(colors)
+    	glDisableVertexAttribArray(pGfxPipeline->color_attribute);
+}
+
 static void InitGLState( struct GlState* pGLState )
 {
 	InitDebugMessenger();
@@ -498,6 +617,7 @@ static void InitGLState( struct GlState* pGLState )
     char* vertex_shader;
     char* fragment_shader;
     size_t bufSize;
+
     ReadFileContentsToCpuBuffer(
         "shaders/vertex_color.vert",
         &vertex_shader,
@@ -564,6 +684,42 @@ static void InitGLState( struct GlState* pGLState )
     pGLState->renderToQuadPipeline.mvp_unifrom = glGetUniformLocation( pGLState->renderToQuadPipeline.gpuprogram, "mvp");
 	pGLState->renderToQuadPipeline.texSampler_uniform = glGetUniformLocation( pGLState->renderToQuadPipeline.gpuprogram, "texSampler");
 
+
+	free(vertex_shader);
+    free(fragment_shader);
+
+    ReadFileContentsToCpuBuffer(
+        "shaders/fxaa.vert",
+        &vertex_shader,
+        &bufSize
+    );
+
+    ReadFileContentsToCpuBuffer(
+        "shaders/fxaa.frag",
+        &fragment_shader,
+        &bufSize
+    );
+
+	pGLState->fxaaPipeline.gpuprogram = createGPUProgram(
+		vertex_shader, fragment_shader
+	);
+    pGLState->fxaaPipeline.position_attribute = 0;
+	pGLState->fxaaPipeline.texcoord_attribute = 1;
+    pGLState->fxaaPipeline.color_attribute = 2;
+    glBindAttribLocation(
+		pGLState->fxaaPipeline.gpuprogram, 
+		pGLState->fxaaPipeline.position_attribute,
+		"pos"
+	);
+    glBindAttribLocation(
+		pGLState->fxaaPipeline.gpuprogram, 
+		pGLState->fxaaPipeline.texcoord_attribute,
+		"texcoord"
+	);
+    glLinkProgram(pGLState->fxaaPipeline.gpuprogram);
+    pGLState->fxaaPipeline.mvp_unifrom = glGetUniformLocation( pGLState->fxaaPipeline.gpuprogram, "mvp");
+	pGLState->fxaaPipeline.texSampler_uniform = glGetUniformLocation( pGLState->fxaaPipeline.gpuprogram, "screenTexture");
+	pGLState->fxaaPipeline.inverseScreenSize_uniform = glGetUniformLocation( pGLState->fxaaPipeline.gpuprogram, "inverseScreenSize" );
 
     glGenBuffers( 1, &pGLState->ibo );
 
@@ -742,6 +898,12 @@ int main( int argc, const char* argv[] )
 	SetupFBO(
 		&clientObjState.mGlState.sceneFBO,
 		&clientObjState.mGlState.sceneTexture,
+		GL_RGBA,
+		GL_UNSIGNED_BYTE
+	);
+	SetupFBO(
+		&clientObjState.mGlState.fxaaFBO,
+		&clientObjState.mGlState.fxaaTexture,
 		GL_RGBA,
 		GL_UNSIGNED_BYTE
 	);
