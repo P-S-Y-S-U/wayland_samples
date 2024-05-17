@@ -349,6 +349,7 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		pTriangleMesh->vertex_positions, pTriangleMesh->vertex_texcoords, pTriangleMesh->vertex_colors
 	);
 
+#if 0
 	glBindFramebuffer(GL_FRAMEBUFFER, pClientObj->mGlState.fxaaFBO);
 
 	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -377,6 +378,21 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		pQuadMesh->indices,
 		pClientObj->mGlState.fxaaTexture
 	);
+#else
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if( status != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
+	}
+	drawFXAAPass( 
+		pClientObj, time,
+		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
+		pQuadMesh->indices,
+		pClientObj->mGlState.sceneTexture
+	);
+#endif 
 }
 
 static void drawTriangle(
@@ -746,7 +762,7 @@ static void SetupFBO(
 		NULL
 	);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	glGenFramebuffers( 1, fbo );
