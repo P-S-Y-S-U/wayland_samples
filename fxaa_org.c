@@ -47,6 +47,9 @@ const uint16_t bytespp = 4;
 uint8_t initialFrameCallbackDone = 0;
 uint8_t SurfacePresented = 0;
 uint8_t imgReadJob = 0;
+float argSubPixel = 0.0f;
+float argEdgeThreshold = 0.0f;
+float argEdgeThresholdMin = 0.0f;
 
 #ifndef WAYLAND_HEADLESS
 static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallback, uint32_t time );
@@ -334,9 +337,9 @@ static void UpdateUniforms( struct ClientObjState* pClientObj )
 	pClientObj->mUniforms.inverseScreenSize[0] = (float) surfaceWidth;
 	pClientObj->mUniforms.inverseScreenSize[1] = (float) surfaceHeight;
 
-    pClientObj->mUniforms.subpixel = 0.75;
-    pClientObj->mUniforms.edgeThreshold = 0.125;
-    pClientObj->mUniforms.edgeThresholdMin = 0.0312;
+    pClientObj->mUniforms.subpixel = argSubPixel;
+    pClientObj->mUniforms.edgeThreshold = argEdgeThreshold;
+    pClientObj->mUniforms.edgeThresholdMin = argEdgeThresholdMin;
 }
 
 static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
@@ -798,9 +801,24 @@ static void SetupFBO(
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void ParseCmdArgs( int argc, const char* argv[] )
+{
+	if( argc < 4 )
+	{
+		printf("<pgmName> <subpixel> <edgeThreshold> <edgeThresholdMin>\n");
+		exit(EXIT_FAILURE);
+	}
+
+	argSubPixel = atof(argv[1]);
+	argEdgeThreshold = atof(argv[2]);
+	argEdgeThresholdMin = atof(argv[3]);
+}
+
 #ifdef WAYLAND_HEADLESS
 int main( int argc, const char* argv[] )
 {
+	ParseCmdArgs( argc, argv );
+
     struct wl_display* pDisplay = NULL;
 
     struct ClientObjState clientObjState = {0};
@@ -840,6 +858,11 @@ int main( int argc, const char* argv[] )
 
 	simulation_start = clock();
 
+	printf("Performing FXAA Sample on Settings: \n");
+	printf("		subpixel : %f \n", argSubPixel);
+	printf("		edgeThreshold : %f \n", argEdgeThreshold);
+	printf("		edgeThresholdMin : %f \n", argEdgeThresholdMin);
+
     while( clientObjState.mbCloseApplication != 1 )
     {
         updateFrame_callback( &clientObjState, 0 );
@@ -878,6 +901,7 @@ int main( int argc, const char* argv[] )
 #else
 int main( int argc, const char* argv[] )
 {
+	ParseCmdArgs( argc, argv );
     struct wl_display* pDisplay = wl_display_connect(NULL);
 
     if( !pDisplay )
@@ -958,6 +982,11 @@ int main( int argc, const char* argv[] )
 	pixelDump = malloc( pixelDumpSizeInBytes );
 
 	simulation_start = clock();
+
+	printf("Performing FXAA Sample on Settings: \n");
+	printf("		subpixel : %f \n", argSubPixel);
+	printf("		edgeThreshold : %f \n", argEdgeThreshold);
+	printf("		edgeThresholdMin : %f \n", argEdgeThresholdMin);
 
     while( clientObjState.mbCloseApplication != 1 )
     {
