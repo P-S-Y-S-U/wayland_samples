@@ -147,8 +147,8 @@ static void updateFrame_callback( void* pData, uint32_t time )
 {
 	struct ClientObjState* pClientObjState = pData;
 
-	//if( imgReadJob )
-	//	pClientObjState->mbCloseApplication = 1;
+	if( imgReadJob )
+		pClientObjState->mbCloseApplication = 1;
 
     UpdateUniforms( pClientObjState );
 	recordGlCommands( pClientObjState, time );
@@ -156,7 +156,7 @@ static void updateFrame_callback( void* pData, uint32_t time )
 	if( initialFrameCallbackDone && !imgReadJob )
 	{
 		SurfacePresented = 1;
-#if 0		
+	
 		imgReadJob = DownloadPixelsFromGPU(
 			DEFAULT_FRAME_BUFFER,
 			FBO,
@@ -168,7 +168,7 @@ static void updateFrame_callback( void* pData, uint32_t time )
 			bytespp,
 			pixelDump, pixelDumpSizeInBytes
 		);
-#endif
+
 	}
 	else
 	{
@@ -868,20 +868,17 @@ int main( int argc, const char* argv[] )
         updateFrame_callback( &clientObjState, 0 );
     }
 
-#if 0
-    char samplesStr[10];
-    sprintf(samplesStr, "%d", numOfMSAAsamples);
-    const char* file = "FXAA";
+	const char* file = "FXAA";
     const char* extension = ".png";
     char fullFileName[125];
-    sprintf(fullFileName, "%s-%s%s", file, samplesStr, extension);
+    sprintf(fullFileName, "%s-%f-%f-%f%s", file, argSubPixel, argEdgeThreshold, argEdgeThresholdMin, extension);
 	WritePixelsToFile(
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
 		pixelDump
 	);
-#endif
+
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
     glDeleteBuffers( 1, &clientObjState.mGlState.ibo );
