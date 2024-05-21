@@ -15,6 +15,7 @@ uniform float m_EdgeThresholdMin;
 #define FXAA_PC 1
 #define FXAA_GLSL_120 1
 #define HIGH_QUALITY
+//#define FXAA_DISCARD
 
 #ifdef HIGH_QUALITY
 	#define FXAA_QUALITY__PRESET 39
@@ -2093,8 +2094,10 @@ void main()
 	FxaaFloat fxaaConsoleEdgeThreshold = 0.0;
 	FxaaFloat fxaaConsoleEdgeThresholdMin = 0.0;
 	FxaaFloat4 fxaaConsole360ConstDir = vec4(0);
-	
-    gl_FragColor = FxaaPixelShader(_pos, fxaaConsolePosPos, u_texture, u_texture, u_texture, fxaaQualityRcpFrame, 
+    
+    FxaaFloat4 orgSample = FxaaTexTop(u_texture, _pos);
+
+    gl_FragColor = vec4( FxaaPixelShader(_pos, fxaaConsolePosPos, u_texture, u_texture, u_texture, fxaaQualityRcpFrame, 
     				fxaaConsoleRcpFrameOpt, fxaaConsoleRcpFrameOpt2, fxaaConsole360RcpFrameOpt2, fxaaQualitySubpix, fxaaQualityEdgeThreshold, 
-    				fxaaQualityEdgeThresholdMin, fxaaConsoleEdgeSharpness, fxaaConsoleEdgeThreshold, fxaaConsoleEdgeThresholdMin, fxaaConsole360ConstDir);
+    				fxaaQualityEdgeThresholdMin, fxaaConsoleEdgeSharpness, fxaaConsoleEdgeThreshold, fxaaConsoleEdgeThresholdMin, fxaaConsole360ConstDir).xyz, orgSample.w );
 }

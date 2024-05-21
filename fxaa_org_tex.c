@@ -361,6 +361,7 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
 	}
 
+	//glEnable(GL_BLEND);
 	drawQuad( 
 		pClientObj, time,
 		0.0, 0.0, 0.0, 1.0,
@@ -406,6 +407,8 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 	{
 		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
 	}
+
+	//glDisable(GL_BLEND);
 	drawFXAAPass( 
 		pClientObj, time,
 		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
@@ -772,7 +775,7 @@ static void InitGLState( struct GlState* pGLState )
         argTexfile,
         &texImgWidth, &texImgHeight,
         &pGLState->meshTexture,
-        GL_LINEAR, GL_NEAREST
+        GL_LINEAR, GL_LINEAR
     );
 }
 
@@ -795,7 +798,7 @@ static void SetupFBO(
 		NULL
 	);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	glGenFramebuffers( 1, fbo );
