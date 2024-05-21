@@ -43,8 +43,10 @@ static struct Mesh* pQuadMesh = NULL;
 
 static clock_t simulation_start;
 
-void* pixelDump = NULL;
-size_t pixelDumpSizeInBytes;
+void* BeforeFXAA_pixelDump = NULL;
+size_t BeforeFXAA_pixelDumpSizeInBytes;
+void* AfterFXAA_pixelDump = NULL;
+size_t AfterFXAA_pixelDumpSizeInBytes;
 const uint16_t bytespp = 4;
 uint8_t initialFrameCallbackDone = 0;
 uint8_t SurfacePresented = 0;
@@ -162,7 +164,19 @@ static void updateFrame_callback( void* pData, uint32_t time )
 	if( initialFrameCallbackDone && !imgReadJob )
 	{
 		SurfacePresented = 1;
-	
+
+		DownloadPixelsFromGPU(
+			TEX_ID,
+			FBO,
+			0, 0,
+			surfaceWidth, surfaceHeight,
+			pClientObjState->mGlState.sceneTexture,
+			GL_RGBA,
+			0,
+			bytespp,
+			BeforeFXAA_pixelDump, BeforeFXAA_pixelDumpSizeInBytes
+		);
+
 		imgReadJob = DownloadPixelsFromGPU(
 			DEFAULT_FRAME_BUFFER,
 			FBO,
@@ -172,7 +186,7 @@ static void updateFrame_callback( void* pData, uint32_t time )
 			GL_RGBA,
 			0,
 			bytespp,
-			pixelDump, pixelDumpSizeInBytes
+			AfterFXAA_pixelDump, AfterFXAA_pixelDumpSizeInBytes
 		);
 	}
 	else
@@ -221,7 +235,7 @@ static void updateFrame_callback( void* pData, struct wl_callback* pFrameCallbac
 			GL_RGBA,
 			0,
 			bytespp,
-			pixelDump, pixelDumpSizeInBytes
+			AfterFXAA_pixelDump, AfterFXAA_pixelDumpSizeInBytes
 		);
 #endif
 	}
@@ -873,8 +887,11 @@ int main( int argc, const char* argv[] )
 	
 	clientObjState.mbCloseApplication = 0;
 
-	pixelDumpSizeInBytes = surfaceWidth * surfaceHeight * bytespp;
-	pixelDump = malloc( pixelDumpSizeInBytes );
+	AfterFXAA_pixelDumpSizeInBytes = surfaceWidth * surfaceHeight * bytespp;
+	AfterFXAA_pixelDump = malloc( AfterFXAA_pixelDumpSizeInBytes );
+
+	BeforeFXAA_pixelDumpSizeInBytes = surfaceWidth * surfaceHeight * bytespp;
+	BeforeFXAA_pixelDump = malloc( BeforeFXAA_pixelDumpSizeInBytes );
 
 	simulation_start = clock();
 
@@ -888,15 +905,22 @@ int main( int argc, const char* argv[] )
         updateFrame_callback( &clientObjState, 0 );
     }
 
-    const char* file = "FXAA";
     const char* extension = ".png";
     char fullFileName[125];
-    sprintf(fullFileName, "%s-Tex-%f-%f-%f%s", file, argSubPixel, argEdgeThreshold, argEdgeThresholdMin, extension);
+    sprintf(fullFileName, "AfterFXAA-Tex-%f-%f-%f%s", argSubPixel, argEdgeThreshold, argEdgeThresholdMin, extension);
 	WritePixelsToFile(
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
-		pixelDump
+		AfterFXAA_pixelDump
+	);
+
+	sprintf(fullFileName, "BeforeFXAA-Tex-%f-%f-%f%s", argSubPixel, argEdgeThreshold, argEdgeThresholdMin, extension);
+	WritePixelsToFile(
+		fullFileName,
+		surfaceWidth, surfaceHeight,
+		4,
+		BeforeFXAA_pixelDump
 	);
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
@@ -994,8 +1018,8 @@ int main( int argc, const char* argv[] )
 
 	clientObjState.mbCloseApplication = 0;
 
-	pixelDumpSizeInBytes = surfaceWidth * surfaceHeight * bytespp;
-	pixelDump = malloc( pixelDumpSizeInBytes );
+	AfterFXAA_pixelDumpSizeInBytes = surfaceWidth * surfaceHeight * bytespp;
+	AfterFXAA_pixelDump = malloc( AfterFXAA_pixelDumpSizeInBytes );
 
 	simulation_start = clock();
 
