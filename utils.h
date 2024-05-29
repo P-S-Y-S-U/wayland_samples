@@ -65,6 +65,33 @@ static int16_t WritePixelsToFile(
     return reslt;
 }
 
+static void GenerateTextureFromBuffer(
+    const void* buffer,
+    const size_t bufferSizeInBytes,
+    GLuint* texture,
+    int width, int height,
+    GLint textureFormat,
+    GLenum pixelDataType,
+    GLuint minFilter, GLuint magFilter
+)
+{
+    glGenTextures( 1, texture );
+    glBindTexture( GL_TEXTURE_2D, *texture );
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+
+    glTexImage2D(
+        GL_TEXTURE_2D, 0,
+        textureFormat,
+        width, height,
+        0,
+        textureFormat,
+        pixelDataType,
+        buffer
+    );
+}
+
 static void GenerateTextureFromImage(
     const char* filename,
     int* imgWidth, int* imgHeight,
