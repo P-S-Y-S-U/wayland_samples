@@ -96,4 +96,35 @@ static void GetQuadMesh( struct Mesh* pMesh )
     pMesh->indices[5] = 3;
 }
 
+static void GetFullscreenTriangle( struct Mesh* pMesh )
+{
+    pMesh->vertex_positions = malloc( sizeof(float) * 3 * 3 );
+    pMesh->vertex_texcoords = malloc( sizeof(float) * 3 * 2 );
+    pMesh->vertex_colors = NULL;
+    pMesh->indices = NULL;
+
+    // position
+    pMesh->vertex_positions[0] = -1.0;
+    pMesh->vertex_positions[1] = -1.0;
+    pMesh->vertex_positions[2] = 0.0;
+
+    pMesh->vertex_positions[3] = -1.0;
+    pMesh->vertex_positions[4] = 3.0;
+    pMesh->vertex_positions[5] = 0.0;
+
+    pMesh->vertex_positions[6] = 3.0;
+    pMesh->vertex_positions[7] = -1.0;
+    pMesh->vertex_positions[8] = 0.0;
+
+    // texcoords
+    pMesh->vertex_texcoords[0] = 0.0;
+    pMesh->vertex_texcoords[1] = 1.0;
+
+    pMesh->vertex_texcoords[2] = 0.0;
+    pMesh->vertex_texcoords[3] = -1.0;
+
+    pMesh->vertex_texcoords[4] = 2.0;
+    pMesh->vertex_texcoords[5] = 1.0;
+}
+
 #endif 

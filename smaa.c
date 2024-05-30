@@ -41,6 +41,7 @@ static uint32_t numOfMSAAsamples = 0;
 
 static struct Mesh* pTriangleMesh = NULL;
 static struct Mesh* pQuadMesh = NULL;
+static struct Mesh* pFullScreenTriangleMesh = NULL;
 
 static clock_t simulation_start;
 
@@ -69,6 +70,10 @@ static void recordCommandsForQuad(
 	struct GlState* pGlState, struct GfxPipeline* pGfxPipeline,
 	const void* position, const void* texcoords, const void* colors,
 	const void* indices
+);
+static void recordCommandsForFullscreenTriangle(
+	struct GlState* pGlState, struct GfxPipeline* pGfxPipeline,
+	const void* position, const void* texcoords, const void* colors
 );
 static void drawQuad( 
 	struct ClientObjState* pClientObj, uint32_t time,
@@ -570,6 +575,49 @@ static void recordCommandsForQuad(
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
 	//glBindTexture(GL_TEXTURE_2D, 0);
+
+    glDisableVertexAttribArray(pGfxPipeline->position_attribute);
+	if(texcoords)
+    	glDisableVertexAttribArray(pGfxPipeline->texcoord_attribute);
+	if(colors)
+    	glDisableVertexAttribArray(pGfxPipeline->color_attribute);
+}
+
+static void recordCommandsForFullscreenTriangle(
+	struct GlState* pGlState, struct GfxPipeline* pGfxPipeline,
+	const void* position, const void* texcoords, const void* colors
+)
+{
+	glVertexAttribPointer(
+        pGfxPipeline->position_attribute,
+        3, GL_FLOAT, GL_FALSE,
+        0,
+        position
+    );
+	glEnableVertexAttribArray(pGfxPipeline->position_attribute);
+	if( texcoords )
+	{
+    	glVertexAttribPointer(
+    	    pGfxPipeline->texcoord_attribute,
+    	    2, GL_FLOAT, GL_FALSE,
+    	    0,
+    	    texcoords
+    	);
+		glEnableVertexAttribArray(pGfxPipeline->texcoord_attribute);
+	}
+	if( colors )
+	{
+    	glVertexAttribPointer(
+    	    pGfxPipeline->color_attribute,
+    	    3, GL_FLOAT, GL_FALSE,
+    	    0,
+    	    colors
+    	);
+		glEnableVertexAttribArray(pGfxPipeline->color_attribute);
+	}
+
+	glDrawArrays( GL_TRIANGLES, 0, 3 );
+
 
     glDisableVertexAttribArray(pGfxPipeline->position_attribute);
 	if(texcoords)
