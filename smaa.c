@@ -404,10 +404,56 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		pClientObj->mGlState.sceneTexture
 	);
 #else
+
+	glBindFramebuffer(GL_FRAMEBUFFER, pClientObj->mGlState.sceneFBO);
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	
+	if( status != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
+	}
+
 	drawTriangle( 
 		pClientObj, time,
 		pTriangleMesh->vertex_positions, pTriangleMesh->vertex_texcoords, pTriangleMesh->vertex_colors
 	);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, pClientObj->mGlState.edgesFBO);
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	
+	if( status != GL_FRAMEBUFFER_COMPLETE )
+	{
+		printf("Failed to Setup FBO errorcode : %d at %d\n", status, __LINE__);
+	}
+
+	drawSMAAEdgePass(
+		pClientObj, time, 
+		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
+		pQuadMesh->indices,
+		pClientObj->mGlState.sceneTexture
+	);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, pClientObj->mGlState.blendFBO);
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+
+	drawSMAABlendWeightPass(
+		pClientObj, time, 
+		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
+		pQuadMesh->indices,
+		pClientObj->mGlState.edgesTexture
+	);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+
+	drawSMAANeighbourhoodBlendPass(
+		pClientObj, time, 
+		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
+		pQuadMesh->indices,
+		pClientObj->mGlState.sceneTexture
+	);
+
+	
 #endif
 }
 
@@ -695,7 +741,8 @@ static void InitGLState( struct GlState* pGLState )
 		AREATEX_WIDTH, AREATEX_HEIGHT,
 		GL_RG_EXT,
 		GL_UNSIGNED_BYTE,
-		GL_LINEAR, GL_NEAREST
+		GL_LINEAR, GL_NEAREST,
+		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE
 	);
 
 	GenerateTextureFromBuffer(
@@ -705,7 +752,8 @@ static void InitGLState( struct GlState* pGLState )
 		SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT,
 		GL_RED_EXT,
 		GL_UNSIGNED_BYTE,
-		GL_LINEAR, GL_NEAREST
+		GL_LINEAR, GL_NEAREST,
+		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE
 	);
 
     char* vertex_shader;
@@ -903,6 +951,11 @@ static void SetupFBO(
 {
 	glGenTextures(1, colorAttachmentTexture);
 	glBindTexture(GL_TEXTURE_2D, *colorAttachmentTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
 	glTexImage2D(
 		GL_TEXTURE_2D,
 		0,
@@ -912,8 +965,7 @@ static void SetupFBO(
 		pixelStorage,
 		NULL
 	);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	glGenFramebuffers( 1, fbo );
