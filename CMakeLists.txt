@@ -210,3 +210,12 @@ target_include_directories(SMAA PUBLIC                     $<BUILD_INTERFACE:${P
                                                                             $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
                                                                 )                                                          
 target_link_libraries(SMAA PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} cglm::cglm m)
+
+add_executable(SMAA_TEX smaa_org.c ${XDG_PROTOCOL_SRCS})
+target_include_directories(SMAA_TEX PUBLIC                     $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
+                                                                            $<BUILD_INTERFACE:${Wayland_Client_INCLUDE_DIR}>
+                                                                            $<BUILD_INTERFACE:${Wayland_Egl_INCLUDE_DIR}>
+                                                                            $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
+                                                                            $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
+                                                                )                                                          
+target_link_libraries(SMAA_TEX PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} cglm::cglm m)
