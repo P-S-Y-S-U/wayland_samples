@@ -1168,7 +1168,7 @@ int main( int argc, const char* argv[] )
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
-		0,
+		1,
 		EdgePass_pixelDump
 	);
 

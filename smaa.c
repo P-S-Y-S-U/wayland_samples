@@ -1197,7 +1197,7 @@ int main( int argc, const char* argv[] )
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
-		0,
+		1,
 		BeforeSMAA_pixelDump
 	);
 
@@ -1206,7 +1206,7 @@ int main( int argc, const char* argv[] )
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
-		0,
+		1,
 		EdgePass_pixelDump
 	);
 
@@ -1215,7 +1215,7 @@ int main( int argc, const char* argv[] )
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
-		0,
+		1,
 		BlendWeight_pixelDump
 	);
 
