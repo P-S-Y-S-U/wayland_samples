@@ -597,6 +597,7 @@ int main( int argc, const char* argv[] )
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
+		1,
 		pixelDump
 	);
 	

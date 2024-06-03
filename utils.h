@@ -41,10 +41,11 @@ static int16_t WritePixelsToFile(
     const char* filename,
     int width, int height,
     int channels,
+    int flipVertically,
     const void* pixelData   
 )
 {
-    stbi_flip_vertically_on_write(1);
+    stbi_flip_vertically_on_write(flipVertically);
 
     int16_t reslt = 0;
     if( !pixelData )
