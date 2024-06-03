@@ -47,6 +47,10 @@ static clock_t simulation_start;
 
 void* BeforeSMAA_pixelDump = NULL;
 size_t BeforeSMAA_pixelDumpSizeInBytes;
+void* EdgePass_pixelDump = NULL;
+size_t EdgePass_pixelDumpSizeInBytes;
+void* BlendWeight_pixelDump = NULL;
+size_t BlendWeight_pixelDumpSizeInBytes;
 void* AfterSMAA_pixelDump = NULL;
 size_t AfterSMAA_pixelDumpSizeInBytes;
 const uint16_t bytespp = 4;
@@ -197,6 +201,30 @@ static void updateFrame_callback( void* pData, uint32_t time )
 			BeforeSMAA_pixelDump, BeforeSMAA_pixelDumpSizeInBytes
 		);
 
+		DownloadPixelsFromGPU(
+			TEX_ID,
+			FBO,
+			0, 0,
+			surfaceWidth, surfaceHeight,
+			pClientObjState->mGlState.edgesTexture,
+			GL_RGBA,
+			0,
+			bytespp,
+			EdgePass_pixelDump, EdgePass_pixelDumpSizeInBytes
+		);
+
+		DownloadPixelsFromGPU(
+			TEX_ID,
+			FBO,
+			0, 0,
+			surfaceWidth, surfaceHeight,
+			pClientObjState->mGlState.blendTexture,
+			GL_RGBA,
+			0,
+			bytespp,
+			BlendWeight_pixelDump, BlendWeight_pixelDumpSizeInBytes
+		);
+		
 		imgReadJob = DownloadPixelsFromGPU(
 			DEFAULT_FRAME_BUFFER,
 			FBO,
@@ -1106,6 +1134,13 @@ int main( int argc, const char* argv[] )
 	BeforeSMAA_pixelDumpSizeInBytes = surfaceWidth * surfaceHeight * bytespp;
 	BeforeSMAA_pixelDump = malloc( BeforeSMAA_pixelDumpSizeInBytes );
 	
+	EdgePass_pixelDumpSizeInBytes = surfaceWidth * surfaceHeight * bytespp;
+	EdgePass_pixelDump = malloc( EdgePass_pixelDumpSizeInBytes );
+
+	BlendWeight_pixelDumpSizeInBytes = surfaceWidth * surfaceHeight * bytespp;
+	BlendWeight_pixelDump = malloc( BlendWeight_pixelDumpSizeInBytes );
+
+
 	simulation_start = clock();
 
     while( clientObjState.mbCloseApplication != 1 )
@@ -1123,7 +1158,7 @@ int main( int argc, const char* argv[] )
 		AfterSMAA_pixelDump
 	);
 
-	sprintf(fullFileName, "BeforeFXAA-%s", extension);
+	sprintf(fullFileName, "BeforeSMAA-%s", extension);
 	WritePixelsToFile(
 		fullFileName,
 		surfaceWidth, surfaceHeight,
@@ -1131,6 +1166,21 @@ int main( int argc, const char* argv[] )
 		BeforeSMAA_pixelDump
 	);
 
+	sprintf(fullFileName, "EdgePass%s", extension);
+	WritePixelsToFile(
+		fullFileName,
+		surfaceWidth, surfaceHeight,
+		4,
+		EdgePass_pixelDump
+	);
+
+	sprintf(fullFileName, "BlendWeight%s", extension);
+	WritePixelsToFile(
+		fullFileName,
+		surfaceWidth, surfaceHeight,
+		4,
+		BlendWeight_pixelDump
+	);
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
     glDeleteBuffers( 1, &clientObjState.mGlState.ibo );
