@@ -1108,11 +1108,6 @@ int main( int argc, const char* argv[] )
 	
 	simulation_start = clock();
 
-	printf("Performing FXAA Sample on Settings: \n");
-	printf("		subpixel : %f \n", argSubPixel);
-	printf("		edgeThreshold : %f \n", argEdgeThreshold);
-	printf("		edgeThresholdMin : %f \n", argEdgeThresholdMin);
-
     while( clientObjState.mbCloseApplication != 1 )
     {
         updateFrame_callback( &clientObjState, 0 );
@@ -1120,7 +1115,7 @@ int main( int argc, const char* argv[] )
 
 	const char* extension = ".png";
     char fullFileName[125];
-    sprintf(fullFileName, "AfterFXAA-%f-%f-%f%s", argSubPixel, argEdgeThreshold, argEdgeThresholdMin, extension);
+    sprintf(fullFileName, "AfterSMAA-%s", extension);
 	WritePixelsToFile(
 		fullFileName,
 		surfaceWidth, surfaceHeight,
@@ -1128,7 +1123,7 @@ int main( int argc, const char* argv[] )
 		AfterSMAA_pixelDump
 	);
 
-	sprintf(fullFileName, "BeforeFXAA-%f-%f-%f%s", argSubPixel, argEdgeThreshold, argEdgeThresholdMin, extension);
+	sprintf(fullFileName, "BeforeFXAA-%s", extension);
 	WritePixelsToFile(
 		fullFileName,
 		surfaceWidth, surfaceHeight,
