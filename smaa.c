@@ -53,6 +53,10 @@ void* BlendWeight_pixelDump = NULL;
 size_t BlendWeight_pixelDumpSizeInBytes;
 void* AfterSMAA_pixelDump = NULL;
 size_t AfterSMAA_pixelDumpSizeInBytes;
+void* AreaTex_pixelDump = NULL;
+size_t AreaTex_pixelDumpSizeInBytes;
+void* SearchTex_pixelDump = NULL;
+size_t SearchTex_pixelDumpSizeInBytes;
 const uint16_t bytespp = 4;
 uint8_t initialFrameCallbackDone = 0;
 uint8_t SurfacePresented = 0;
@@ -213,6 +217,30 @@ static void updateFrame_callback( void* pData, uint32_t time )
 			EdgePass_pixelDump, EdgePass_pixelDumpSizeInBytes
 		);
 
+		DownloadPixelsFromGPU(
+			TEX_ID,
+			FBO,
+			0, 0,
+			AREATEX_WIDTH, AREATEX_HEIGHT,
+			pClientObjState->mGlState.areaTexture,
+			GL_RGBA,
+			0,
+			4,
+			AreaTex_pixelDump, AreaTex_pixelDumpSizeInBytes
+		);
+
+		DownloadPixelsFromGPU(
+			TEX_ID,
+			FBO,
+			0, 0,
+			SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT,
+			pClientObjState->mGlState.searchTexture,
+			GL_RGBA,
+			0,
+			4,
+			SearchTex_pixelDump, SearchTex_pixelDumpSizeInBytes
+		);
+		
 		DownloadPixelsFromGPU(
 			TEX_ID,
 			FBO,
@@ -1140,6 +1168,11 @@ int main( int argc, const char* argv[] )
 	BlendWeight_pixelDumpSizeInBytes = surfaceWidth * surfaceHeight * bytespp;
 	BlendWeight_pixelDump = malloc( BlendWeight_pixelDumpSizeInBytes );
 
+	AreaTex_pixelDumpSizeInBytes = AREATEX_WIDTH * AREATEX_HEIGHT * 4;
+	AreaTex_pixelDump = malloc( AreaTex_pixelDumpSizeInBytes );
+
+	SearchTex_pixelDumpSizeInBytes = SEARCHTEX_WIDTH * SEARCHTEX_HEIGHT * 4;
+	SearchTex_pixelDump = malloc( SearchTex_pixelDumpSizeInBytes );
 
 	simulation_start = clock();
 
@@ -1155,6 +1188,7 @@ int main( int argc, const char* argv[] )
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
+		1,
 		AfterSMAA_pixelDump
 	);
 
@@ -1163,6 +1197,7 @@ int main( int argc, const char* argv[] )
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
+		0,
 		BeforeSMAA_pixelDump
 	);
 
@@ -1171,6 +1206,7 @@ int main( int argc, const char* argv[] )
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
+		0,
 		EdgePass_pixelDump
 	);
 
@@ -1179,7 +1215,26 @@ int main( int argc, const char* argv[] )
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
+		0,
 		BlendWeight_pixelDump
+	);
+
+	sprintf(fullFileName, "AreaTex%s", extension);
+	WritePixelsToFile(
+		fullFileName,
+		AREATEX_WIDTH, AREATEX_HEIGHT,
+		4,
+		0,
+		AreaTex_pixelDump
+	);
+
+	sprintf(fullFileName, "SearchTex%s", extension);
+	WritePixelsToFile(
+		fullFileName,
+		SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT,
+		4,
+		0,
+		SearchTex_pixelDump
 	);
 
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
