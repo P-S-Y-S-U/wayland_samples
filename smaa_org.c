@@ -802,7 +802,7 @@ static void InitGLState( struct GlState* pGLState )
 		AREATEX_WIDTH, AREATEX_HEIGHT,
 		GL_RG_EXT,
 		GL_UNSIGNED_BYTE,
-		GL_LINEAR, GL_NEAREST,
+		GL_LINEAR, GL_LINEAR,
 		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE
 	);
 
@@ -813,7 +813,7 @@ static void InitGLState( struct GlState* pGLState )
 		SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT,
 		GL_RED_EXT,
 		GL_UNSIGNED_BYTE,
-		GL_LINEAR, GL_NEAREST,
+		GL_LINEAR, GL_LINEAR,
 		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE
 	);
 
@@ -821,7 +821,7 @@ static void InitGLState( struct GlState* pGLState )
         argTexfile,
         &texImgWidth, &texImgHeight,
         &pGLState->meshTexture,
-        GL_LINEAR, GL_NEAREST
+        GL_LINEAR, GL_LINEAR
     );
 
     char* vertex_shader;
@@ -1019,7 +1019,7 @@ static void SetupFBO(
 	glGenTextures(1, colorAttachmentTexture);
 	glBindTexture(GL_TEXTURE_2D, *colorAttachmentTexture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
