@@ -395,18 +395,18 @@ static void UpdateUniforms( struct ClientObjState* pClientObj )
 	float degree = 90.0f;
 	float fovy = 45.0f;
 
-	//glm_make_rad(&degree);
+	glm_make_rad(&degree);
 	glm_make_rad(&fovy);
 
 	clock_t duration = clock() - simulation_start;
-	float duration_in_secs = ( (float) duration ) / CLOCKS_PER_SEC;
+	float duration_in_secs = ( (float) duration ) / ( CLOCKS_PER_SEC / 10 );
 
 	float rotation_axis[] = { 0.0, 1.0, 0.0 };
-	//glm_rotate(
-	//	model,
-	//	duration_in_secs * degree,
-	//	rotation_axis
-	//);
+	glm_rotate(
+		model,
+		duration_in_secs * degree,
+		rotation_axis
+	);
 
 	float view_eye[] = { 0.0, 0.0, 3.0 };
 	float view_center[] = { 0.0, 0.0, 0.0 };
@@ -845,7 +845,7 @@ static void InitGLState( struct GlState* pGLState )
 		AREATEX_WIDTH, AREATEX_HEIGHT,
 		GL_RG_EXT,
 		GL_UNSIGNED_BYTE,
-		GL_LINEAR, GL_NEAREST,
+		GL_LINEAR, GL_LINEAR,
 		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE
 	);
 
@@ -856,7 +856,7 @@ static void InitGLState( struct GlState* pGLState )
 		SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT,
 		GL_RED_EXT,
 		GL_UNSIGNED_BYTE,
-		GL_LINEAR, GL_NEAREST,
+		GL_LINEAR, GL_LINEAR,
 		GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE
 	);
 
@@ -865,13 +865,13 @@ static void InitGLState( struct GlState* pGLState )
     size_t bufSize;
 
     ReadFileContentsToCpuBuffer(
-        "shaders/vertex_color.vert",
+        "shaders/vertex_color_mvp.vert",
         &vertex_shader,
         &bufSize
     );
 
     ReadFileContentsToCpuBuffer(
-        "shaders/vertex_color.frag",
+        "shaders/vertex_color_mvp.frag",
         &fragment_shader,
         &bufSize
     );
@@ -1056,7 +1056,7 @@ static void SetupFBO(
 	glGenTextures(1, colorAttachmentTexture);
 	glBindTexture(GL_TEXTURE_2D, *colorAttachmentTexture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
