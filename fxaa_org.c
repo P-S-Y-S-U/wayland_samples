@@ -892,6 +892,7 @@ int main( int argc, const char* argv[] )
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
+		1,
 		AfterFXAA_pixelDump
 	);
 
@@ -900,6 +901,7 @@ int main( int argc, const char* argv[] )
 		fullFileName,
 		surfaceWidth, surfaceHeight,
 		4,
+		1,
 		BeforeFXAA_pixelDump
 	);
 
