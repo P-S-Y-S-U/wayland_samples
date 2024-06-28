@@ -259,3 +259,12 @@ target_include_directories(SMAA_TEX_HEADLESS PUBLIC                     $<BUILD_
                                                                 )                                                          
 target_link_libraries(SMAA_TEX_HEADLESS PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} cglm::cglm m)
 target_compile_definitions(SMAA_TEX_HEADLESS PUBLIC WAYLAND_HEADLESS)
+
+add_executable(SAMPLER_TEST sampler_test.c ${XDG_PROTOCOL_SRCS})
+target_include_directories(SAMPLER_TEST PUBLIC                     $<BUILD_INTERFACE:${PROJECT_INCLUDE_DIR}> 
+                                                                            $<BUILD_INTERFACE:${Wayland_Client_INCLUDE_DIR}>
+                                                                            $<BUILD_INTERFACE:${Wayland_Egl_INCLUDE_DIR}>
+                                                                            $<BUILD_INTERFACE:${GLES2_INCLUDE_DIR}>
+                                                                            $<BUILD_INTERFACE:${EGL_INCLUDE_DIR}>
+                                                                )                                                          
+target_link_libraries(SAMPLER_TEST PUBLIC ${RENDERER_LIBRARY} ${Rt_LIBRARY} ${Wayland_Client_LIBRARY} ${Wayland_Egl_LIBRARY} cglm::cglm m)
