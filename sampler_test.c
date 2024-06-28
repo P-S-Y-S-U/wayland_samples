@@ -309,7 +309,7 @@ static void recordGlCommands( struct ClientObjState* pClientObj, uint32_t time )
 		0.0, 0.0, 0.0, 1.0,
 		pQuadMesh->vertex_positions, pQuadMesh->vertex_texcoords, NULL,
 		pQuadMesh->indices,
-		pClientObj->mGlState.meshTexture
+		pClientObj->mGlState.sceneTexture
 	);
 }
 
@@ -677,7 +677,7 @@ int main( int argc, const char* argv[] )
 	SetupFBO(
 		&clientObjState.mGlState.sceneFBO,
 		&clientObjState.mGlState.sceneTexture,
-		GL_RGBA,
+		GL_BGRA_EXT,
 		GL_UNSIGNED_BYTE
 	);
 	pTriangleMesh = malloc(sizeof(struct Mesh));
